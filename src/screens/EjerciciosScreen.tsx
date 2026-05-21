@@ -9,13 +9,15 @@ import {
   StatusBar,
   Modal,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { MotiView, AnimatePresence } from 'moti';
 import { useTheme } from '../hooks/useTheme';
 import { useActivityStore, Exercise } from '../store/useActivityStore';
-import { Search, ChevronDown, Check, X } from 'lucide-react-native';
+import { Search, ChevronDown, Check, X, ChevronLeft, Plus } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MUSCLE_GROUPS = ['Cualquier parte del cuerpo', 'Bíceps', 'Tríceps', 'Hombros', 'Piernas', 'Pecho', 'Espalda', 'Core'];
@@ -23,7 +25,8 @@ const CATEGORIES = ['Cualquier categoría', 'Mancuernas', 'Máquina', 'Peso corp
 
 export const EjerciciosScreen: React.FC = () => {
   const { colors, spacing, typography } = useTheme();
-  const { exercises } = useActivityStore();
+  const navigation = useNavigation();
+  const { exercises, addExerciseToDraft, draftRoutineExercises } = useActivityStore();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState('Cualquier parte del cuerpo');
@@ -41,18 +44,47 @@ export const EjerciciosScreen: React.FC = () => {
     return matchesSearch && matchesMuscle && matchesCategory;
   });
 
+  const handleAddExercise = () => {
+    if (selectedExercise) {
+      addExerciseToDraft(selectedExercise);
+      Alert.alert(
+        'Añadido', 
+        `"${selectedExercise.name}" ha sido añadido a tu rutina.`,
+        [
+          { text: 'Seguir buscando', onPress: () => setSelectedExercise(null) },
+          { text: 'Ver Rutina', onPress: () => {
+              setSelectedExercise(null);
+              navigation.goBack();
+          }}
+        ]
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
       
       {/* Title */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.textPrimary, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold }]}>
-          EJERCICIOS
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.bold }]}>
-          BASE DE DATOS DE ENTRENAMIENTO
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <ChevronLeft size={28} color={colors.textPrimary} />
+          </Pressable>
+          <View>
+            <Text style={[styles.title, { color: colors.textPrimary, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold }]}>
+              EJERCICIOS
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.primary, fontSize: typography.sizes.xs, fontWeight: typography.weights.bold }]}>
+              BASE DE DATOS DE ENTRENAMIENTO
+            </Text>
+          </View>
+        </View>
+        {draftRoutineExercises.length > 0 && (
+          <View style={styles.draftBadge}>
+            <Text style={styles.draftBadgeText}>{draftRoutineExercises.length}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.content}>
@@ -160,7 +192,6 @@ export const EjerciciosScreen: React.FC = () => {
                   transition={{ type: 'timing', duration: 350, delay: index * 30 }}
                   style={[styles.exerciseCard, { backgroundColor: colors.card, borderColor: colors.border }]}
                 >
-                  {/* Left Side: Exercise GIF */}
                   <View style={[styles.imageContainer, { borderColor: colors.border }]}>
                     <Image
                       source={{ uri: ex.gifUrl }}
@@ -170,7 +201,6 @@ export const EjerciciosScreen: React.FC = () => {
                     />
                   </View>
 
-                  {/* Right Side: Name and Muscle ONLY */}
                   <View style={styles.cardContent}>
                     <Text style={[styles.exerciseName, { color: colors.textPrimary, fontSize: typography.sizes.sm, fontWeight: typography.weights.bold }]}>
                       {ex.name}
@@ -183,7 +213,6 @@ export const EjerciciosScreen: React.FC = () => {
               </Pressable>
             ))
           )}
-          {/* Tab bar padding spacing */}
           <View style={{ height: 100 }} />
         </ScrollView>
       </View>
@@ -320,7 +349,7 @@ export const EjerciciosScreen: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* DETAIL MODAL OVERLAY (FRAMER-STYLE ANIMATED) */}
+      {/* DETAIL MODAL OVERLAY */}
       <AnimatePresence>
         {selectedExercise && (
           <MotiView
@@ -330,7 +359,6 @@ export const EjerciciosScreen: React.FC = () => {
             transition={{ type: 'timing', duration: 200 }}
             style={styles.absoluteOverlay}
           >
-            {/* Backdrop */}
             <Pressable 
               style={StyleSheet.absoluteFill} 
               onPress={() => setSelectedExercise(null)} 
@@ -343,7 +371,6 @@ export const EjerciciosScreen: React.FC = () => {
               transition={{ type: 'spring', damping: 22, stiffness: 140 }}
               style={[styles.detailModalContent, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
-              {/* Drag Handle Indicator */}
               <View style={[styles.dragHandle, { backgroundColor: colors.border }]} />
 
               <View style={[styles.detailHeader, { borderBottomColor: colors.border }]}>
@@ -356,7 +383,6 @@ export const EjerciciosScreen: React.FC = () => {
               </View>
 
               <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
-                {/* Large GIF Container */}
                 <View style={[styles.largeGifWrapper, { borderColor: colors.border, backgroundColor: '#050508' }]}>
                   <Image
                     source={{ uri: selectedExercise.gifUrl }}
@@ -366,12 +392,10 @@ export const EjerciciosScreen: React.FC = () => {
                   />
                 </View>
 
-                {/* Name */}
                 <Text style={[styles.detailNameText, { color: colors.textPrimary, fontSize: typography.sizes.md, fontWeight: typography.weights.bold }]}>
                   {selectedExercise.name}
                 </Text>
 
-                {/* Badges Row */}
                 <View style={styles.detailBadgesRow}>
                   <View style={[styles.detailBadge, { backgroundColor: `${colors.primary}12`, borderColor: colors.primary }]}>
                     <Text style={[styles.detailBadgeText, { color: colors.primary, fontSize: 10, fontWeight: '700' }]}>
@@ -385,7 +409,6 @@ export const EjerciciosScreen: React.FC = () => {
                   </View>
                 </View>
 
-                {/* How to do Section */}
                 <View style={styles.descSection}>
                   <Text style={[styles.descSectionTitle, { color: colors.primary }]}>
                     CÓMO REALIZARLO
@@ -394,6 +417,18 @@ export const EjerciciosScreen: React.FC = () => {
                     {selectedExercise.description}
                   </Text>
                 </View>
+                
+                {/* BOTON DE AÑADIR A RUTINA */}
+                <Pressable 
+                  onPress={handleAddExercise}
+                  style={({ pressed }) => [
+                    styles.addRoutineBtn,
+                    { opacity: pressed ? 0.8 : 1 }
+                  ]}
+                >
+                  <Plus size={20} color="#000" style={{ marginRight: 8 }} />
+                  <Text style={styles.addRoutineBtnText}>Añadir a Rutina</Text>
+                </Pressable>
                 
                 <View style={{ height: 40 }} />
               </ScrollView>
@@ -410,9 +445,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
+  },
+  backBtn: {
+    padding: 8,
+    marginRight: 4,
+  },
+  draftBadge: {
+    backgroundColor: '#FFD700',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  draftBadgeText: {
+    color: '#000',
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   title: {
     letterSpacing: 1,
@@ -513,31 +568,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    maxHeight: '65%',
-    paddingBottom: 30,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-  },
-  modalTitle: {},
-  modalOptions: {
-    paddingHorizontal: 10,
-  },
   modalOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -546,9 +576,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
-  modalOptionText: {},
-  
-  // Custom absolute detail overlay styles (Framer-style)
   absoluteOverlay: {
     position: 'absolute',
     top: 0,
@@ -564,7 +591,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     borderWidth: 1,
     borderBottomWidth: 0,
-    height: '80%', // Responsive height
+    height: '80%',
     paddingBottom: 30,
   },
   dragHandle: {
@@ -634,5 +661,19 @@ const styles = StyleSheet.create({
   descText: {
     fontSize: 13,
     lineHeight: 20,
+  },
+  addRoutineBtn: {
+    backgroundColor: '#FFD700',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 14,
+    marginTop: 8,
+  },
+  addRoutineBtnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

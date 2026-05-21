@@ -1,263 +1,137 @@
-import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Switch,
-  Pressable,
-} from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withDelay,
-} from 'react-native-reanimated';
-import { MotiView } from 'moti';
 import { useTheme } from '../hooks/useTheme';
+import { LogOut, User, Activity, Target, Calendar, Scale, Ruler, Edit3 } from 'lucide-react-native';
+import { Image } from 'expo-image';
 import { useAuthStore } from '../store/useAuthStore';
-import { AnimatedButton } from '../components/AnimatedButton';
-import { User, Award, ShieldAlert, Settings, Bell, CircleCheck, LogOut } from 'lucide-react-native';
 
-import { useActivityStore } from '../store/useActivityStore';
+const { width } = Dimensions.get('window');
 
 export const ProfileScreen: React.FC = () => {
-  const { colors, spacing, typography } = useTheme();
-  const { user, logout } = useAuthStore();
-  const { workoutHistory, metrics } = useActivityStore();
-
-  const [isMetric, setIsMetric] = React.useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
-
-  // Level progress animation parameters
-  const xpCurrent = user?.xp || 4250;
-  const xpTarget = 5000;
-  const progressRatio = xpCurrent / xpTarget;
-
-  const xpProgress = useSharedValue(0);
-
-  useEffect(() => {
-    xpProgress.value = withDelay(400, withSpring(progressRatio, { damping: 15 }));
-  }, [progressRatio]);
-
-  const progressStyle = useAnimatedStyle(() => ({
-    width: `${xpProgress.value * 100}%`,
-  }));
-
-  const achievements = [
-    { title: 'Consistencia', desc: 'Racha 7-días', icon: 'CircleCheck', unlocked: true },
-    { title: 'Hierro Puro', desc: 'Entrenamiento Completado', icon: 'Award', unlocked: workoutHistory.length > 0 },
-    { title: 'Élite', desc: '3+ Ejercicios Loggeados', icon: 'Award', unlocked: workoutHistory.some(w => w.exercises.length >= 3) },
-  ];
+  const { colors, typography } = useTheme();
+  const { logout } = useAuthStore();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       
-      {/* Title Header */}
+      {/* HEADER */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: typography.sizes.xl, fontWeight: typography.weights.bold }]}>
-          Perfil de Atleta
+        <Text style={[styles.headerTitle, { color: colors.textPrimary, fontSize: typography.sizes.xl, fontWeight: 'bold' }]}>
+          PERFIL
         </Text>
-        <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontSize: typography.sizes.xs }]}>
-          Monitorea tus metas y configuración personal
-        </Text>
+        <Pressable style={styles.editBtn}>
+          <Edit3 size={20} color={colors.textPrimary} />
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Profile Card */}
-        <MotiView
-          from={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 15 }}
-          style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-        >
-          <View style={styles.avatarRow}>
-            <View style={[styles.avatar, { backgroundColor: 'rgba(212, 175, 55, 0.08)', borderColor: colors.primary }]}>
-              <User size={36} color={colors.primary} />
+        {/* PROFILE INFO */}
+        <View style={styles.profileSection}>
+          <View style={styles.avatarContainer}>
+            <Image 
+              source={{ uri: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200&auto=format&fit=crop' }} 
+              style={[styles.avatar, { borderColor: colors.border }]} 
+              contentFit="cover" 
+            />
+            <View style={[styles.proBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.proBadgeText}>PRO</Text>
             </View>
-            <View style={styles.userInfo}>
-              <Text style={[styles.profileName, { color: colors.textPrimary, fontSize: typography.sizes.lg, fontWeight: typography.weights.bold }]}>
-                {user?.name || 'Alex Rivera'}
-              </Text>
-              <Text style={[styles.profileEmail, { color: colors.textSecondary, fontSize: typography.sizes.xs }]}>
-                {user?.email || 'alex@trainly.io'}
-              </Text>
-              <View style={[styles.targetBadge, { backgroundColor: colors.cardElevated, borderColor: colors.border }]}>
-                <Text style={[styles.targetBadgeText, { color: colors.primary, fontSize: 10, fontWeight: '700' }]}>
-                  META: {user?.target.toUpperCase() || 'RENDIMIENTO'}
-                </Text>
-              </View>
+          </View>
+          <Text style={[styles.userName, { color: colors.textPrimary }]}>Junior Tovar</Text>
+          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@juniortovars</Text>
+        </View>
+
+        {/* STATS GRID */}
+        <View style={styles.statsGrid}>
+          {/* Card 1: Peso */}
+          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.statIconBox, { backgroundColor: 'rgba(58, 134, 255, 0.1)' }]}>
+              <Scale size={20} color="#3A86FF" />
+            </View>
+            <View style={styles.statContent}>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>75 <Text style={styles.statUnit}>kg</Text></Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Peso actual</Text>
             </View>
           </View>
 
-          {/* Real-time Stats Row */}
-          <View style={[styles.statsDashboardRow, { borderColor: colors.border }]}>
-            <View style={styles.statsDashboardItem}>
-              <Text style={[styles.statsVal, { color: colors.textPrimary, fontSize: typography.sizes.md, fontWeight: '800' }]}>
-                {workoutHistory.length}
-              </Text>
-              <Text style={[styles.statsLabel, { color: colors.textSecondary, fontSize: 10 }]}>Sesiones</Text>
+          {/* Card 2: Altura */}
+          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.statIconBox, { backgroundColor: 'rgba(255, 215, 0, 0.1)' }]}>
+              <Ruler size={20} color={colors.primary} />
             </View>
-            <View style={[styles.statsDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.statsDashboardItem}>
-              <Text style={[styles.statsVal, { color: colors.textPrimary, fontSize: typography.sizes.md, fontWeight: '800' }]}>
-                {metrics.activeTime}
-              </Text>
-              <Text style={[styles.statsLabel, { color: colors.textSecondary, fontSize: 10 }]}>Min Activos</Text>
-            </View>
-            <View style={[styles.statsDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.statsDashboardItem}>
-              <Text style={[styles.statsVal, { color: colors.textPrimary, fontSize: typography.sizes.md, fontWeight: '800' }]}>
-                {metrics.caloriesBurned}
-              </Text>
-              <Text style={[styles.statsLabel, { color: colors.textSecondary, fontSize: 10 }]}>Kcal</Text>
+            <View style={styles.statContent}>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>180 <Text style={styles.statUnit}>cm</Text></Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Altura</Text>
             </View>
           </View>
 
-          {/* Gamification Level-Up Bar */}
-          <View style={[styles.xpSection, { borderTopColor: colors.border }]}>
-            <View style={styles.xpTextRow}>
-              <Text style={[styles.xpLabel, { color: colors.textSecondary, fontSize: typography.sizes.xs, fontWeight: typography.weights.semibold }]}>
-                Nivel {user?.level || 12}
-              </Text>
-              <Text style={[styles.xpValues, { color: colors.textPrimary, fontSize: typography.sizes.xs }]}>
-                {xpCurrent} <Text style={{ color: colors.textSecondary }}>/ {xpTarget} XP</Text>
-              </Text>
+          {/* Card 3: Días Entrenados */}
+          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.statIconBox, { backgroundColor: 'rgba(52, 199, 89, 0.1)' }]}>
+              <Calendar size={20} color="#34C759" />
             </View>
-            <View style={[styles.progressBarBg, { backgroundColor: colors.cardElevated }]}>
-              <Animated.View style={[styles.progressBarFill, { backgroundColor: colors.primary }, progressStyle]} />
+            <View style={styles.statContent}>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>15 <Text style={styles.statUnit}>días</Text></Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Entrenados</Text>
             </View>
           </View>
-        </MotiView>
 
-        {/* Achievements Section */}
-        <MotiView
-          from={{ opacity: 0, translateY: 15 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 400, delay: 100 }}
-          style={styles.sectionContainer}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontSize: typography.sizes.md, fontWeight: typography.weights.bold, marginBottom: 12 }]}>
-            Logros Desbloqueados
-          </Text>
-          <View style={styles.achievementsRow}>
-            {achievements.map((item, idx) => {
-              const activeColor = item.unlocked ? colors.primary : colors.textMuted;
-              return (
-                <View 
-                  key={idx} 
-                  style={[
-                    styles.achievementCard, 
-                    { 
-                      backgroundColor: colors.card, 
-                      borderColor: colors.border,
-                      opacity: item.unlocked ? 1 : 0.6 
-                    }
-                  ]}
-                >
-                  <View style={[styles.achievementIconBg, { backgroundColor: item.unlocked ? 'rgba(212, 175, 55, 0.08)' : 'rgba(99, 99, 102, 0.05)' }]}>
-                    {item.icon === 'CircleCheck' ? (
-                      <CircleCheck size={20} color={activeColor} />
-                    ) : (
-                      <Award size={20} color={activeColor} />
-                    )}
-                  </View>
-                  <Text style={[styles.achievementName, { color: colors.textPrimary, fontSize: 11, fontWeight: '700' }]}>
-                    {item.title}
-                  </Text>
-                  <Text style={[styles.achievementDesc, { color: colors.textSecondary, fontSize: 9 }]}>
-                    {item.desc}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </MotiView>
-
-        {/* Configuration settings list */}
-        <MotiView
-          from={{ opacity: 0, translateY: 15 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 400, delay: 200 }}
-          style={styles.sectionContainer}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontSize: typography.sizes.md, fontWeight: typography.weights.bold, marginBottom: 12 }]}>
-            Configuración de Atleta
-          </Text>
-          <View style={[styles.settingsList, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            
-            {/* Setting: Units system */}
-            <View style={[styles.settingRow, { borderBottomColor: colors.border }]}>
-              <View style={styles.settingLeft}>
-                <Settings size={18} color={colors.textSecondary} style={{ marginRight: 12 }} />
-                <View>
-                  <Text style={[styles.settingName, { color: colors.textPrimary, fontSize: typography.sizes.sm, fontWeight: '500' }]}>
-                    Sistema Métrico (kg)
-                  </Text>
-                  <Text style={[styles.settingDesc, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-                    Usar kilogramos y kilómetros
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={isMetric}
-                onValueChange={setIsMetric}
-                trackColor={{ false: colors.cardElevated, true: 'rgba(212, 175, 55, 0.4)' }}
-                thumbColor={isMetric ? colors.primary : colors.textSecondary}
-              />
+          {/* Card 4: Meta */}
+          <View style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.statIconBox, { backgroundColor: 'rgba(255, 69, 58, 0.1)' }]}>
+              <Target size={20} color="#FF453A" />
             </View>
-
-            {/* Setting: Notifications */}
-            <View style={styles.settingRow}>
-              <View style={styles.settingLeft}>
-                <Bell size={18} color={colors.textSecondary} style={{ marginRight: 12 }} />
-                <View>
-                  <Text style={[styles.settingName, { color: colors.textPrimary, fontSize: typography.sizes.sm, fontWeight: '500' }]}>
-                    Notificaciones de Coach
-                  </Text>
-                  <Text style={[styles.settingDesc, { color: colors.textSecondary, fontSize: typography.sizes.caption }]}>
-                    Consejos diarios sobre carga y recuperación
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={setNotificationsEnabled}
-                trackColor={{ false: colors.cardElevated, true: 'rgba(212, 175, 55, 0.4)' }}
-                thumbColor={notificationsEnabled ? colors.primary : colors.textSecondary}
-              />
+            <View style={styles.statContent}>
+              <Text style={[styles.statValue, { color: colors.textPrimary, fontSize: 16 }]} numberOfLines={1}>Hipertrofia</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Meta principal</Text>
             </View>
-
           </View>
-        </MotiView>
+        </View>
 
-        {/* Logout button */}
-        <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ type: 'timing', duration: 400, delay: 300 }}
-          style={styles.logoutWrapper}
-        >
-          <Pressable 
-            onPress={logout} 
-            style={({ pressed }) => [
-              styles.logoutBtn, 
-              { 
-                borderColor: colors.accentRed,
-                backgroundColor: pressed ? 'rgba(255, 59, 48, 0.05)' : 'transparent' 
-              }
-            ]}
-          >
-            <LogOut size={18} color={colors.accentRed} style={{ marginRight: 8 }} />
-            <Text style={[styles.logoutBtnText, { color: colors.accentRed, fontSize: typography.sizes.sm, fontWeight: typography.weights.bold }]}>
-              Cerrar Sesión
-            </Text>
+        {/* RECENT ACTIVITY */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Actividad Reciente</Text>
+        </View>
+        
+        <View style={[styles.activityCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.activityIcon, { backgroundColor: 'rgba(255, 215, 0, 0.1)' }]}>
+            <Activity size={24} color={colors.primary} />
+          </View>
+          <View style={styles.activityContent}>
+            <Text style={[styles.activityTitle, { color: colors.textPrimary }]}>Pecho y Tríceps</Text>
+            <Text style={[styles.activitySubtitle, { color: colors.textSecondary }]}>Ayer • 1h 15m</Text>
+          </View>
+          <Text style={[styles.activityVolume, { color: colors.primary }]}>3.2k kg</Text>
+        </View>
+
+        {/* SETTINGS OPTIONS */}
+        <View style={styles.settingsGroup}>
+          <Pressable style={[styles.settingItem, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.settingItemText, { color: colors.textPrimary }]}>Cuenta de Usuario</Text>
           </Pressable>
-        </MotiView>
+          <Pressable style={[styles.settingItem, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.settingItemText, { color: colors.textPrimary }]}>Notificaciones</Text>
+          </Pressable>
+          <Pressable style={[styles.settingItem, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.settingItemText, { color: colors.textPrimary }]}>Soporte</Text>
+          </Pressable>
+        </View>
 
-        <View style={{ height: 120 }} />
+        {/* LOGOUT */}
+        <Pressable 
+          onPress={logout}
+          style={({ pressed }) => [
+            styles.logoutBtn, 
+            { borderColor: colors.accentRed, opacity: pressed ? 0.8 : 1 }
+          ]}
+        >
+          <LogOut size={20} color={colors.accentRed} style={{ marginRight: 8 }} />
+          <Text style={{ color: colors.accentRed, fontWeight: 'bold' }}>Cerrar Sesión</Text>
+        </Pressable>
+        
+        <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -268,178 +142,154 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
   headerTitle: {
-    letterSpacing: -0.5,
-    marginBottom: 4,
+    letterSpacing: 1,
   },
-  headerSubtitle: {
-    opacity: 0.8,
+  editBtn: {
+    padding: 8,
   },
   scrollContent: {
     padding: 20,
   },
-  profileCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 20,
-    marginBottom: 24,
-  },
-  avatarRow: {
-    flexDirection: 'row',
+  profileSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 32,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
   },
   avatar: {
-    width: 64,
-    height: 64,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+  },
+  proBadge: {
+    position: 'absolute',
+    bottom: -5,
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#000',
+  },
+  proBadgeText: {
+    color: '#000',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  userHandle: {
+    fontSize: 14,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 32,
+  },
+  statCard: {
+    width: (width - 40 - 16) / 2, // 2 columns
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  statContent: {
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  statUnit: {
+    fontSize: 12,
+    fontWeight: 'normal',
+    opacity: 0.7,
+  },
+  statLabel: {
+    fontSize: 12,
+  },
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  activityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 32,
+  },
+  activityIcon: {
+    width: 48,
+    height: 48,
     borderRadius: 24,
-    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  userInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  profileName: {
-    letterSpacing: -0.3,
-    marginBottom: 2,
-  },
-  profileEmail: {
-    marginBottom: 8,
-  },
-  targetBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 6,
-    borderWidth: 1,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-  },
-  targetBadgeText: {
-    letterSpacing: 0.5,
-  },
-  statsDashboardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderRadius: 14,
-    marginVertical: 16,
-  },
-  statsDashboardItem: {
-    alignItems: 'center',
+  activityContent: {
     flex: 1,
   },
-  statsDivider: {
-    width: 1,
-    height: 24,
-  },
-  statsVal: {},
-  statsLabel: {
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  xpSection: {
-    borderTopWidth: 1,
-    borderTopColor: '#252533',
-    paddingTop: 16,
-  },
-  xpTextRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  xpLabel: {
-    letterSpacing: 0.2,
-  },
-  xpValues: {
-    fontWeight: '600',
-  },
-  progressBarBg: {
-    height: 8,
-    borderRadius: 4,
-    width: '100%',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  xpPrompt: {},
-  sectionContainer: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    letterSpacing: -0.2,
-  },
-  achievementsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  achievementCard: {
-    flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  achievementIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  achievementName: {
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
     marginBottom: 4,
-    textAlign: 'center',
   },
-  achievementDesc: {
-    textAlign: 'center',
+  activitySubtitle: {
+    fontSize: 13,
   },
-  settingsList: {
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: 'hidden',
+  activityVolume: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
+  settingsGroup: {
+    marginBottom: 32,
+  },
+  settingItem: {
+    paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingName: {},
-  settingDesc: {
-    marginTop: 2,
-  },
-  logoutWrapper: {
-    marginTop: 10,
-    alignItems: 'center',
+  settingItemText: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderWidth: 1,
-    borderRadius: 14,
-    height: 48,
-    width: '100%',
-  },
-  logoutBtnText: {},
+    borderRadius: 16,
+  }
 });

@@ -64,8 +64,11 @@ interface ActivityState {
   routines: Routine[];
   activeWorkoutSession: WorkoutSession | null;
   workoutHistory: WorkoutHistoryItem[];
-  isLoading: boolean;
-  
+  draftRoutineExercises: Exercise[];
+  addExerciseToDraft: (exercise: Exercise) => void;
+  removeExerciseFromDraft: (exerciseId: string) => void;
+  clearDraft: () => void;
+
   // Actions
   createRoutine: (name: string, description: string, selectedExercises: Exercise[]) => void;
   generateRoutineFromQuiz: (goal: string, experience: string, frequency: string, equipment: string) => Routine;
@@ -356,6 +359,24 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   activeWorkoutSession: null,
   workoutHistory: [], // Start empty as requested ("solo si es que hice un ejercicio")
   isLoading: false,
+  draftRoutineExercises: [],
+
+  addExerciseToDraft: (exercise) => {
+    set((state) => {
+      if (state.draftRoutineExercises.find(e => e.id === exercise.id)) return state;
+      return { draftRoutineExercises: [...state.draftRoutineExercises, exercise] };
+    });
+  },
+
+  removeExerciseFromDraft: (exerciseId) => {
+    set((state) => ({
+      draftRoutineExercises: state.draftRoutineExercises.filter((e) => e.id !== exerciseId)
+    }));
+  },
+
+  clearDraft: () => {
+    set({ draftRoutineExercises: [] });
+  },
 
   createRoutine: (name, description, selectedExercises) => {
     const newRoutine: Routine = {
@@ -366,6 +387,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     };
     set((state) => ({
       routines: [...state.routines, newRoutine],
+      draftRoutineExercises: [], // clear draft on save
     }));
   },
 
