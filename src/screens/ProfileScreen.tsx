@@ -37,7 +37,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 export const ProfileScreen: React.FC = () => {
   const { colors, typography } = useTheme();
-  const { logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const navigation = useNavigation<any>();
   const { 
     workoutHistory, 
@@ -46,6 +46,20 @@ export const ProfileScreen: React.FC = () => {
     friendsList, 
     setWeightAndHeight 
   } = useActivityStore();
+
+  const initials = useMemo(() => {
+    if (!user?.name) return 'TR';
+    const parts = user.name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts[0].slice(0, 2).toUpperCase();
+  }, [user?.name]);
+
+  const userHandle = useMemo(() => {
+    if (!user?.email) return '@usuario';
+    return `@${user.email.split('@')[0]}`;
+  }, [user?.email]);
   const width = useAppWidth();
 
   // Navigation or screen state
@@ -287,7 +301,7 @@ export const ProfileScreen: React.FC = () => {
         <View style={styles.profileSection}>
           <View style={styles.avatarWrapper}>
             <View style={[styles.avatarContainer, { borderColor: colors.border, backgroundColor: colors.card, marginBottom: 0 }]}>
-              <Text style={[styles.avatarInitials, { color: colors.textPrimary }]}>JT</Text>
+              <Text style={[styles.avatarInitials, { color: colors.textPrimary }]}>{initials}</Text>
             </View>
             <Pressable 
               style={({ pressed }) => [
@@ -299,8 +313,8 @@ export const ProfileScreen: React.FC = () => {
               <Text style={styles.avatarAddBtnText}>+</Text>
             </Pressable>
           </View>
-          <Text style={[styles.userName, { color: colors.textPrimary }]}>Junior Tovar</Text>
-          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@juniortovars</Text>
+          <Text style={[styles.userName, { color: colors.textPrimary }]}>Bienvenid@, {user?.name || 'Usuario'}</Text>
+          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>{user?.email || '@usuario'}</Text>
 
           <View style={styles.countersRow}>
             <View style={styles.counterCol}>

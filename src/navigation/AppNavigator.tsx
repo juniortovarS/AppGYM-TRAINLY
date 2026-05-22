@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, ActivityIndicator, Platform, Text, Pressable } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -12,6 +12,7 @@ import { GlobalWorkoutToast } from '../components/GlobalWorkoutToast';
 // Import Screens
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { TrainingHomePage } from '../modules/training/pages/TrainingHomePage';
 import { EjerciciosScreen } from '../screens/EjerciciosScreen';
 import { HistorialScreen } from '../screens/HistorialScreen';
@@ -105,8 +106,74 @@ const MainNavigator = () => {
   );
 };
 
+const linking = {
+  prefixes: [
+    Platform.OS === 'web' ? (typeof window !== 'undefined' ? window.location.origin : '') : 'trainly://',
+    'trainly://',
+  ],
+  config: {
+    screens: {
+      Tabs: {
+        path: '',
+        screens: {
+          Amigos: 'amigos',
+          Rangos: 'rangos',
+          Explorar: 'explorar',
+          Perfil: 'perfil',
+        },
+      },
+      CreateRoutine: 'create-routine',
+      ActiveWorkout: 'active-workout',
+      ExerciseDetail: 'exercise-detail/:exerciseId',
+      RoutineDetail: 'routine-detail/:routineId',
+      Ejercicios: 'ejercicios',
+      Historial: 'historial',
+      Login: 'login',
+      Register: 'register',
+    },
+  },
+};
+
+const DebugBypass = ({ colors }: { colors: any }) => {
+  const [show, setShow] = React.useState(false);
+  const { isLoggedIn, user, isLoading } = useAuthStore();
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setShow(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!show) return null;
+
+  return (
+    <View style={{ marginTop: 40, alignItems: 'center', width: '100%' }}>
+      <Text style={{ color: '#ff4444', fontSize: 12, marginBottom: 10, textAlign: 'center' }}>
+        El inicio de sesión está tardando más de lo esperado.
+      </Text>
+      <Text style={{ color: '#666', fontSize: 11, marginBottom: 20, textAlign: 'center' }}>
+        Estado: isLoading={String(isLoading)}, isLoggedIn={String(isLoggedIn)}, user={user ? 'Definido' : 'Null'}
+      </Text>
+      <Pressable
+        onPress={() => {
+          useAuthStore.setState({ isLoading: false });
+        }}
+        style={{
+          paddingVertical: 10,
+          paddingHorizontal: 20,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: '#333',
+          backgroundColor: '#111',
+        }}
+      >
+        <Text style={{ color: '#fff', fontSize: 13 }}>Continuar de todos modos</Text>
+      </Pressable>
+    </View>
+  );
+};
+
 export const AppNavigator = () => {
-  const { isLoggedIn } = useAuthStore();
+  const { isLoggedIn, user, isLoading } = useAuthStore();
   const { colors } = useTheme();
   const { showWorkoutCompletedToast } = useActivityStore();
 
@@ -122,10 +189,28 @@ export const AppNavigator = () => {
     },
   };
 
+  const showOnboarding = isLoggedIn && user && !user.hasCompletedOnboarding;
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <ActivityIndicator size="large" color="#ffffff" />
+        <Text style={{ color: '#888', marginTop: 20, fontSize: 14 }}>Iniciando sesión en Trainly...</Text>
+        <DebugBypass colors={colors} />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <NavigationContainer theme={MyTheme}>
-        {isLoggedIn ? <MainNavigator /> : <AuthNavigator />}
+      <NavigationContainer theme={MyTheme} linking={linking}>
+        {showOnboarding ? (
+          <OnboardingScreen />
+        ) : isLoggedIn ? (
+          <MainNavigator />
+        ) : (
+          <AuthNavigator />
+        )}
       </NavigationContainer>
 
       <AnimatePresence>

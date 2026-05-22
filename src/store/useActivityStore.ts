@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import AppStorage from '../lib/storage';
 
 export interface Exercise {
   id: string;
@@ -70,6 +71,9 @@ interface ActivityState {
   userWeight: number | null;
   userHeight: number | null;
   friendsList: string[];
+  currentUserEmail: string | null;
+  loadUserData: (email: string) => Promise<void>;
+  clearUserData: () => void;
   addExerciseToDraft: (exercise: Exercise) => void;
   removeExerciseFromDraft: (exerciseId: string) => void;
   clearDraft: () => void;
@@ -356,19 +360,39 @@ const SEED_EXERCISES: Exercise[] = [
   }
 ];
 
+const DEFAULT_METRICS: DailyMetrics = {
+  caloriesBurned: 180,
+  caloriesTarget: 600,
+  activeTime: 15,
+  activeTimeTarget: 60,
+  recoveryScore: 88,
+  strainScore: 8.5,
+  heartRateCurrent: 72,
+  heartRateResting: 58,
+  hrv: 82,
+};
+
+const saveToStorage = async (email: string | null, key: string, value: any) => {
+  if (!email) return;
+  try {
+    await AppStorage.setItem(`trainly_${key}_${email}`, JSON.stringify(value));
+  } catch (e) {
+    console.error(`Error saving ${key} to AppStorage:`, e);
+  }
+};
+
+const removeFromStorage = async (email: string | null, key: string) => {
+  if (!email) return;
+  try {
+    await AppStorage.removeItem(`trainly_${key}_${email}`);
+  } catch (e) {
+    console.error(`Error removing ${key} from AppStorage:`, e);
+  }
+};
+
 export const useActivityStore = create<ActivityState>((set, get) => ({
-  metrics: {
-    caloriesBurned: 180,
-    caloriesTarget: 600,
-    activeTime: 15,
-    activeTimeTarget: 60,
-    recoveryScore: 88,
-    strainScore: 8.5,
-    heartRateCurrent: 72,
-    heartRateResting: 58,
-    hrv: 82,
-  },
-  
+  currentUserEmail: null,
+  metrics: DEFAULT_METRICS,
   exercises: SEED_EXERCISES,
   routines: [], // Start empty to trigger the setup guide and wizard
   activeWorkoutSession: null,
@@ -381,16 +405,73 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   weeklyWorkoutGoal: 4,
   showWorkoutCompletedToast: false,
 
-  setWeeklyWorkoutGoal: (goal) => set({ weeklyWorkoutGoal: goal }),
+  loadUserData: async (email: string) => {
+    set({ isLoading: true, currentUserEmail: email });
+    try {
+      const routinesStr = await AppStorage.getItem(`trainly_routines_${email}`);
+      const historyStr = await AppStorage.getItem(`trainly_history_${email}`);
+      const metricsStr = await AppStorage.getItem(`trainly_metrics_${email}`);
+      const goalStr = await AppStorage.getItem(`trainly_goal_${email}`);
+      const activeSessionStr = await AppStorage.getItem(`trainly_active_session_${email}`);
+      const friendsStr = await AppStorage.getItem(`trainly_friends_${email}`);
+
+      const routines = routinesStr ? JSON.parse(routinesStr) : [];
+      const workoutHistory = historyStr ? JSON.parse(historyStr) : [];
+      const metrics = metricsStr ? JSON.parse(metricsStr) : DEFAULT_METRICS;
+      const weeklyWorkoutGoal = goalStr ? Number(goalStr) : 4;
+      const activeWorkoutSession = activeSessionStr ? JSON.parse(activeSessionStr) : null;
+      const friendsList = friendsStr ? JSON.parse(friendsStr) : [];
+
+      set({
+        routines,
+        workoutHistory,
+        metrics,
+        weeklyWorkoutGoal,
+        activeWorkoutSession,
+        friendsList,
+        isLoading: false,
+      });
+    } catch (e) {
+      console.error('Error loading user data from AppStorage:', e);
+      set({ isLoading: false });
+    }
+  },
+
+  clearUserData: () => {
+    set({
+      currentUserEmail: null,
+      routines: [],
+      workoutHistory: [],
+      metrics: DEFAULT_METRICS,
+      activeWorkoutSession: null,
+      friendsList: [],
+      weeklyWorkoutGoal: 4,
+    });
+  },
+
+  setWeeklyWorkoutGoal: (goal) => {
+    set({ weeklyWorkoutGoal: goal });
+    const email = get().currentUserEmail;
+    if (email) {
+      AppStorage.setItem(`trainly_goal_${email}`, String(goal)).catch(console.error);
+    }
+  },
+
   setShowWorkoutCompletedToast: (show) => set({ showWorkoutCompletedToast: show }),
   setWeightAndHeight: (weight, height) => set({ userWeight: weight, userHeight: height }),
+  
   addFriend: (name) => set((state) => {
     if (state.friendsList.includes(name)) return {};
-    return { friendsList: [...state.friendsList, name] };
+    const updated = [...state.friendsList, name];
+    saveToStorage(state.currentUserEmail, 'friends', updated);
+    return { friendsList: updated };
   }),
-  removeFriend: (name) => set((state) => ({
-    friendsList: state.friendsList.filter((f) => f !== name)
-  })),
+
+  removeFriend: (name) => set((state) => {
+    const updated = state.friendsList.filter((f) => f !== name);
+    saveToStorage(state.currentUserEmail, 'friends', updated);
+    return { friendsList: updated };
+  }),
 
   addExerciseToDraft: (exercise) => {
     set((state) => {
@@ -421,10 +502,14 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       description,
       exercises: selectedExercises,
     };
-    set((state) => ({
-      routines: [...state.routines, newRoutine],
-      draftRoutineExercises: [], // clear draft on save
-    }));
+    set((state) => {
+      const updated = [...state.routines, newRoutine];
+      saveToStorage(state.currentUserEmail, 'routines', updated);
+      return {
+        routines: updated,
+        draftRoutineExercises: [], // clear draft on save
+      };
+    });
     return newId;
   },
 
@@ -475,9 +560,13 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       exercises: routineExercises.slice(0, 5), // Keep to a sweet spot of 5 exercises
     };
 
-    set((state) => ({
-      routines: [...state.routines, newRoutine],
-    }));
+    set((state) => {
+      const updated = [...state.routines, newRoutine];
+      saveToStorage(state.currentUserEmail, 'routines', updated);
+      return {
+        routines: updated,
+      };
+    });
 
     return newRoutine;
   },
@@ -496,14 +585,15 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       ],
     }));
 
-    set({
-      activeWorkoutSession: {
-        id: `session-${Date.now()}`,
-        name: routine.name,
-        startTime: Date.now(),
-        exercises: sessionExercises,
-      },
-    });
+    const newSession = {
+      id: `session-${Date.now()}`,
+      name: routine.name,
+      startTime: Date.now(),
+      exercises: sessionExercises,
+    };
+
+    set({ activeWorkoutSession: newSession });
+    saveToStorage(get().currentUserEmail, 'active_session', newSession);
   },
 
   updateWorkoutSet: (exerciseId, setIndex, field, value) => {
@@ -521,11 +611,15 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         return { ...ex, sets: updatedSets };
       });
 
+      const updatedSession = {
+        ...state.activeWorkoutSession,
+        exercises: updatedExercises,
+      };
+
+      saveToStorage(state.currentUserEmail, 'active_session', updatedSession);
+
       return {
-        activeWorkoutSession: {
-          ...state.activeWorkoutSession,
-          exercises: updatedExercises,
-        },
+        activeWorkoutSession: updatedSession,
       };
     });
   },
@@ -546,11 +640,15 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         return { ...ex, sets: [...ex.sets, newSet] };
       });
 
+      const updatedSession = {
+        ...state.activeWorkoutSession,
+        exercises: updatedExercises,
+      };
+
+      saveToStorage(state.currentUserEmail, 'active_session', updatedSession);
+
       return {
-        activeWorkoutSession: {
-          ...state.activeWorkoutSession,
-          exercises: updatedExercises,
-        },
+        activeWorkoutSession: updatedSession,
       };
     });
   },
@@ -565,11 +663,15 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         return { ...ex, sets: updatedSets };
       });
 
+      const updatedSession = {
+        ...state.activeWorkoutSession,
+        exercises: updatedExercises,
+      };
+
+      saveToStorage(state.currentUserEmail, 'active_session', updatedSession);
+
       return {
-        activeWorkoutSession: {
-          ...state.activeWorkoutSession,
-          exercises: updatedExercises,
-        },
+        activeWorkoutSession: updatedSession,
       };
     });
   },
@@ -580,11 +682,15 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       const updatedExercises = state.activeWorkoutSession.exercises.filter(
         (ex) => ex.exerciseId !== exerciseId
       );
+      const updatedSession = {
+        ...state.activeWorkoutSession,
+        exercises: updatedExercises,
+      };
+
+      saveToStorage(state.currentUserEmail, 'active_session', updatedSession);
+
       return {
-        activeWorkoutSession: {
-          ...state.activeWorkoutSession,
-          exercises: updatedExercises,
-        },
+        activeWorkoutSession: updatedSession,
       };
     });
   },
@@ -609,11 +715,16 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
           sets: newSets,
         };
       });
+
+      const updatedSession = {
+        ...state.activeWorkoutSession,
+        exercises: updatedExercises,
+      };
+
+      saveToStorage(state.currentUserEmail, 'active_session', updatedSession);
+
       return {
-        activeWorkoutSession: {
-          ...state.activeWorkoutSession,
-          exercises: updatedExercises,
-        },
+        activeWorkoutSession: updatedSession,
       };
     });
   },
@@ -633,6 +744,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     // CRITICAL REQUIREMENT: Show routine only if they did at least one exercise
     if (completedExercises.length === 0) {
       set({ activeWorkoutSession: null });
+      removeFromStorage(get().currentUserEmail, 'active_session');
       return false; // Not saved
     }
 
@@ -655,22 +767,32 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       exercises: completedExercises,
     };
 
-    set((state) => ({
-      workoutHistory: [historyItem, ...state.workoutHistory],
-      activeWorkoutSession: null,
-      metrics: {
+    set((state) => {
+      const updatedHistory = [historyItem, ...state.workoutHistory];
+      const updatedMetrics = {
         ...state.metrics,
         caloriesBurned: state.metrics.caloriesBurned + calories,
         activeTime: state.metrics.activeTime + duration,
         strainScore: Math.min(21, Number((state.metrics.strainScore + (duration * 0.15)).toFixed(1))),
-      },
-    }));
+      };
+      
+      saveToStorage(state.currentUserEmail, 'history', updatedHistory);
+      saveToStorage(state.currentUserEmail, 'metrics', updatedMetrics);
+      removeFromStorage(state.currentUserEmail, 'active_session');
+
+      return {
+        workoutHistory: updatedHistory,
+        activeWorkoutSession: null,
+        metrics: updatedMetrics,
+      };
+    });
 
     return true; // Successfully saved
   },
 
   cancelWorkoutSession: () => {
     set({ activeWorkoutSession: null });
+    removeFromStorage(get().currentUserEmail, 'active_session');
   },
 
   refreshMetrics: async () => {

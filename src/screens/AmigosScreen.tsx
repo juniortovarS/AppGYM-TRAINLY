@@ -5,6 +5,7 @@ import { useTheme } from '../hooks/useTheme';
 import { Search, UserPlus, Users, MessageCircle, Send, Link, Mail, X, Lock, Bell } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useActivityStore } from '../store/useActivityStore';
+import { useAuthStore } from '../store/useAuthStore';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 
 const { height } = Dimensions.get('window');
@@ -29,6 +30,7 @@ const ORBIT_BUBBLES = [
 export const AmigosScreen: React.FC = () => {
   const { colors, typography } = useTheme();
   const { workoutHistory } = useActivityStore();
+  const { user } = useAuthStore();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [showInviteSheet, setShowInviteSheet] = useState(false);
@@ -40,6 +42,16 @@ export const AmigosScreen: React.FC = () => {
 
   const workoutCount = workoutHistory.length;
 
+  // Dynamically calculate user initials (e.g. Camila Abad -> CA)
+  const userInitials = useMemo(() => {
+    const name = user?.name || 'Junior Tovar';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }, [user?.name]);
+
   // Build sorted leaderboard data combining Tú and 4 suggested contacts (exactly 5 items total)
   const leaderboardData = useMemo(() => {
     let myRankLabel = 'Rango I: Recluta';
@@ -50,9 +62,9 @@ export const AmigosScreen: React.FC = () => {
 
     const me = {
       id: 'me',
-      name: 'Junior Tovar',
-      initials: 'JT',
-      handle: '@juniortovars',
+      name: user?.name || 'Junior Tovar',
+      initials: userInitials,
+      handle: user?.email || '@juniortovars',
       workouts: workoutCount,
       rankLabel: myRankLabel,
       desc: 'Tú',
@@ -61,7 +73,7 @@ export const AmigosScreen: React.FC = () => {
     const list = [me, ...SUGGESTED_CONTACTS];
     // Sort descending by number of workouts
     return list.sort((a, b) => b.workouts - a.workouts);
-  }, [workoutCount]);
+  }, [workoutCount, user?.name, user?.email, userInitials]);
 
   // Filter leaderboard based on search query
   const filteredLeaderboard = useMemo(() => {
@@ -74,7 +86,8 @@ export const AmigosScreen: React.FC = () => {
 
   const handleCopyLink = () => {
     try {
-      Clipboard.setString('https://trainly.app/invite/juniortovars');
+      const inviteHandle = user?.email ? user.email.split('@')[0] : 'juniortovars';
+      Clipboard.setString(`https://trainly.app/invite/${inviteHandle}`);
     } catch (e) {
       console.log('Clipboard copy fallback');
     }
@@ -100,7 +113,7 @@ export const AmigosScreen: React.FC = () => {
             <View style={styles.logoBlock1} />
             <View style={styles.logoBlock2} />
           </View>
-          <Text style={styles.logoText}>Symmetry</Text>
+          <Text style={styles.logoText}>Trainly</Text>
         </View>
         <View style={styles.headerRight}>
           <Pressable onPress={handleFocusSearch} style={styles.headerIconBtn}>
@@ -149,7 +162,7 @@ export const AmigosScreen: React.FC = () => {
               contentFit="contain"
             />
             <View style={[styles.centralAvatar, { borderColor: '#FFFFFF', backgroundColor: '#121216' }]}>
-              <Text style={styles.centralAvatarText}>JT</Text>
+              <Text style={styles.centralAvatarText}>{userInitials}</Text>
             </View>
           </View>
         </View>
@@ -321,7 +334,7 @@ export const AmigosScreen: React.FC = () => {
           
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>INVITAR CONTACTOS</Text>
-            <Text style={styles.sheetSub}>Envía un enlace para unirse a Symmetry</Text>
+            <Text style={styles.sheetSub}>Envía un enlace para unirse a Trainly</Text>
             <Pressable 
               onPress={() => setShowInviteSheet(false)} 
               style={styles.sheetCloseBtn}
