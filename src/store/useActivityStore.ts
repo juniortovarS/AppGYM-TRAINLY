@@ -441,7 +441,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
 
       // Sync with Supabase Auth user_metadata to support multi-device syncing
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
         if (user?.user_metadata) {
           const meta = user.user_metadata;
           
