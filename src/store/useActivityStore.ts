@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import AppStorage from '../lib/storage';
+import { supabase } from '../lib/supabase';
 
 export interface Exercise {
   id: string;
@@ -376,8 +377,17 @@ const saveToStorage = async (email: string | null, key: string, value: any) => {
   if (!email) return;
   try {
     await AppStorage.setItem(`trainly_${key}_${email}`, JSON.stringify(value));
+    
+    // Sync to Supabase auth metadata (excluding active session to prevent rate limits)
+    if (key !== 'active_session') {
+      await supabase.auth.updateUser({
+        data: {
+          [key]: value
+        }
+      });
+    }
   } catch (e) {
-    console.error(`Error saving ${key} to AppStorage:`, e);
+    console.error(`Error saving ${key} to AppStorage/Supabase:`, e);
   }
 };
 
@@ -385,8 +395,15 @@ const removeFromStorage = async (email: string | null, key: string) => {
   if (!email) return;
   try {
     await AppStorage.removeItem(`trainly_${key}_${email}`);
+    if (key !== 'active_session') {
+      await supabase.auth.updateUser({
+        data: {
+          [key]: null
+        }
+      });
+    }
   } catch (e) {
-    console.error(`Error removing ${key} from AppStorage:`, e);
+    console.error(`Error removing ${key} from AppStorage/Supabase:`, e);
   }
 };
 
@@ -415,12 +432,84 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       const activeSessionStr = await AppStorage.getItem(`trainly_active_session_${email}`);
       const friendsStr = await AppStorage.getItem(`trainly_friends_${email}`);
 
-      const routines = routinesStr ? JSON.parse(routinesStr) : [];
-      const workoutHistory = historyStr ? JSON.parse(historyStr) : [];
-      const metrics = metricsStr ? JSON.parse(metricsStr) : DEFAULT_METRICS;
-      const weeklyWorkoutGoal = goalStr ? Number(goalStr) : 4;
+      let routines = routinesStr ? JSON.parse(routinesStr) : [];
+      let workoutHistory = historyStr ? JSON.parse(historyStr) : [];
+      let metrics = metricsStr ? JSON.parse(metricsStr) : DEFAULT_METRICS;
+      let weeklyWorkoutGoal = goalStr ? Number(goalStr) : 4;
       const activeWorkoutSession = activeSessionStr ? JSON.parse(activeSessionStr) : null;
-      const friendsList = friendsStr ? JSON.parse(friendsStr) : [];
+      let friendsList = friendsStr ? JSON.parse(friendsStr) : [];
+
+      // Sync with Supabase Auth user_metadata to support multi-device syncing
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.user_metadata) {
+          const meta = user.user_metadata;
+          
+          // 1. Sync routines
+          if (meta.routines) {
+            const mergedRoutines = [...routines];
+            meta.routines.forEach((r: any) => {
+              if (!mergedRoutines.some((existing) => existing.id === r.id)) {
+                mergedRoutines.push(r);
+              }
+            });
+            routines = mergedRoutines;
+            await AppStorage.setItem(`trainly_routines_${email}`, JSON.stringify(routines));
+          }
+          
+          // 2. Sync history
+          if (meta.history) {
+            const mergedHistory = [...workoutHistory];
+            meta.history.forEach((h: any) => {
+              if (!mergedHistory.some((existing) => existing.id === h.id)) {
+                mergedHistory.push(h);
+              }
+            });
+            workoutHistory = mergedHistory;
+            await AppStorage.setItem(`trainly_history_${email}`, JSON.stringify(workoutHistory));
+          }
+          
+          // 3. Sync metrics
+          if (meta.metrics) {
+            const isLocalDefault = JSON.stringify(metrics) === JSON.stringify(DEFAULT_METRICS);
+            if (isLocalDefault || meta.metrics.caloriesBurned > metrics.caloriesBurned) {
+              metrics = meta.metrics;
+              await AppStorage.setItem(`trainly_metrics_${email}`, JSON.stringify(metrics));
+            }
+          }
+          
+          // 4. Sync weekly goal
+          if (meta.goal && weeklyWorkoutGoal === 4) {
+            weeklyWorkoutGoal = Number(meta.goal);
+            await AppStorage.setItem(`trainly_goal_${email}`, String(weeklyWorkoutGoal));
+          }
+          
+          // 5. Sync friends
+          if (meta.friends) {
+            const mergedFriends = [...friendsList];
+            meta.friends.forEach((f: string) => {
+              if (!mergedFriends.includes(f)) {
+                mergedFriends.push(f);
+              }
+            });
+            friendsList = mergedFriends;
+            await AppStorage.setItem(`trainly_friends_${email}`, JSON.stringify(friendsList));
+          }
+
+          // Push any merged changes back to Supabase metadata to keep both in sync
+          await supabase.auth.updateUser({
+            data: {
+              routines,
+              history: workoutHistory,
+              metrics,
+              goal: weeklyWorkoutGoal,
+              friends: friendsList
+            }
+          });
+        }
+      } catch (authError) {
+        console.warn('Could not sync user_metadata from Supabase auth:', authError);
+      }
 
       set({
         routines,
@@ -453,7 +542,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     set({ weeklyWorkoutGoal: goal });
     const email = get().currentUserEmail;
     if (email) {
-      AppStorage.setItem(`trainly_goal_${email}`, String(goal)).catch(console.error);
+      saveToStorage(email, 'goal', goal);
     }
   },
 
