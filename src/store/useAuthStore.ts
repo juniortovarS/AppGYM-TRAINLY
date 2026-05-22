@@ -195,8 +195,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 let hasProcessedInitial = false;
+let isProcessingAuth = false;
 
 const handleAuthChange = async (session: any) => {
+  if (isProcessingAuth) {
+    console.log('useAuthStore: handleAuthChange skipped to prevent concurrent execution.');
+    return;
+  }
+  isProcessingAuth = true;
   try {
     if (session?.user) {
       // Only set isLoading to true if not already logged in
@@ -342,6 +348,8 @@ const handleAuthChange = async (session: any) => {
     console.error('Global error in auth change handler:', err);
     // CRITICAL: Ensure we clear loading status so the UI doesn't hang!
     useAuthStore.setState({ isLoading: false });
+  } finally {
+    isProcessingAuth = false;
   }
 };
 
