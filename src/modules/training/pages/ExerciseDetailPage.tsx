@@ -5,17 +5,19 @@ import { ChevronLeft, PlayCircle, Trophy, TrendingUp, Info } from 'lucide-react-
 import { Image } from 'expo-image';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useActivityStore } from '../../../../src/store/useActivityStore';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { useAppWidth } from '../../../../src/hooks/useAppWidth';
+import { getExerciseAnatomicalAsset } from '../../../../src/utils/exerciseAssets';
 
 export const ExerciseDetailPage: React.FC = () => {
   const { colors, typography } = useTheme();
   const navigation = useNavigation();
   const route = useRoute<any>();
   const { exerciseId } = route.params || {};
+  const screenWidth = useAppWidth();
 
-  const { availableExercises } = useActivityStore();
-  const exercise = availableExercises.find(ex => ex.id === exerciseId);
+  const { exercises } = useActivityStore();
+  const exercise = exercises.find((ex: any) => ex.id === exerciseId);
+  const [showGif, setShowGif] = React.useState(false);
 
   if (!exercise) {
     return (
@@ -43,12 +45,24 @@ export const ExerciseDetailPage: React.FC = () => {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* VIDEO / MEDIA HEADER */}
-        <View style={styles.mediaContainer}>
-          <Image source={{ uri: exercise.gifUrl }} style={styles.mediaVideo} contentFit="cover" />
-          <View style={[styles.mediaOverlay, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
-            <PlayCircle size={48} color={colors.primary} />
+        <Pressable 
+          onPress={() => setShowGif(!showGif)} 
+          style={[styles.mediaContainer, { height: screenWidth * 0.75 }]}
+        >
+          <Image
+            source={showGif ? { uri: exercise.gifUrl } : getExerciseAnatomicalAsset(exercise)}
+            style={styles.mediaVideo}
+            contentFit={showGif ? "contain" : "cover"}
+          />
+          <View style={[styles.mediaOverlay, { backgroundColor: showGif ? 'transparent' : 'rgba(0,0,0,0.15)' }]}>
+            {!showGif && <PlayCircle size={48} color="#FFF" />}
           </View>
-        </View>
+          <View style={styles.badgeToggle}>
+            <Text style={styles.badgeToggleText}>
+              {showGif ? "VER ANATOMÍA" : "VER MOVIMIENTO"}
+            </Text>
+          </View>
+        </Pressable>
 
         {/* METADATA */}
         <View style={styles.metaSection}>
@@ -149,7 +163,6 @@ const styles = StyleSheet.create({
   },
   mediaContainer: {
     width: '100%',
-    height: SCREEN_WIDTH * 0.75,
     position: 'relative',
   },
   mediaVideo: {
@@ -232,5 +245,22 @@ const styles = StyleSheet.create({
   stepText: {
     fontSize: 14,
     lineHeight: 22,
+  },
+  badgeToggle: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  badgeToggleText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
   },
 });

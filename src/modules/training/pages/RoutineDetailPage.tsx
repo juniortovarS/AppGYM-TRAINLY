@@ -5,6 +5,38 @@ import { useTheme } from '../../../../src/hooks/useTheme';
 import { useActivityStore } from '../../../../src/store/useActivityStore';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ChevronLeft, MoreVertical, Sparkles, Plus, ArrowDownUp, Edit2, Play } from 'lucide-react-native';
+import Body from 'react-native-body-highlighter';
+import { getExerciseAnatomicalAsset } from '../../../../src/utils/exerciseAssets';
+
+const getExerciseMuscleGroup = (ex: { name: string; bodyPart: string }): string => {
+  if (ex.bodyPart === 'Piernas') {
+    const nameLower = ex.name.toLowerCase();
+    if (nameLower.includes('rumano') || nameLower.includes('femoral') || nameLower.includes('curl de piernas') || nameLower.includes('curls de piernas')) {
+      return 'Femoral';
+    }
+    if (nameLower.includes('glúteo') || nameLower.includes('lunge') || nameLower.includes('zancada') || nameLower.includes('hip thrust')) {
+      return 'Glúteos';
+    }
+    if (nameLower.includes('talón') || nameLower.includes('talo') || nameLower.includes('gemelo') || nameLower.includes('pantorrilla') || nameLower.includes('calf')) {
+      return 'Pantorrillas';
+    }
+    return 'Cuádriceps';
+  }
+  return ex.bodyPart; // 'Bíceps', 'Tríceps', 'Hombros', 'Pecho', 'Espalda', 'Core'
+};
+
+const MUSCLE_MAP: Record<string, { side: 'front' | 'back'; slugs: string[] }> = {
+  'Bíceps': { side: 'front', slugs: ['biceps'] },
+  'Tríceps': { side: 'back', slugs: ['triceps'] },
+  'Hombros': { side: 'front', slugs: ['front-deltoids'] },
+  'Pecho': { side: 'front', slugs: ['chest'] },
+  'Espalda': { side: 'back', slugs: ['upper-back', 'lower-back', 'trapezius'] },
+  'Core': { side: 'front', slugs: ['abs', 'obliques'] },
+  'Cuádriceps': { side: 'front', slugs: ['quadriceps'] },
+  'Femoral': { side: 'back', slugs: ['hamstring'] },
+  'Glúteos': { side: 'back', slugs: ['gluteal'] },
+  'Pantorrillas': { side: 'back', slugs: ['calves'] },
+};
 
 const { width } = Dimensions.get('window');
 
@@ -18,6 +50,28 @@ export const RoutineDetailPage: React.FC = () => {
   
   // Si no hay ID, usamos la primera rutina como fallback para visualizar
   const routine = routineId ? routines.find(r => r.id === routineId) : routines[0];
+
+  const estimatedDuration = React.useMemo(() => {
+    if (!routine || !routine.exercises) return 0;
+    return routine.exercises.length * 12 + 8;
+  }, [routine]);
+
+  const muscleDistribution = React.useMemo(() => {
+    if (!routine || !routine.exercises || routine.exercises.length === 0) {
+      return [];
+    }
+    const counts: Record<string, number> = {};
+    routine.exercises.forEach((ex) => {
+      const muscle = getExerciseMuscleGroup(ex);
+      counts[muscle] = (counts[muscle] || 0) + 1;
+    });
+
+    const total = routine.exercises.length;
+    return Object.entries(counts).map(([name, count]) => {
+      const percentage = Math.round((count / total) * 100);
+      return { name, percentage };
+    }).sort((a, b) => b.percentage - a.percentage);
+  }, [routine]);
 
   if (!routine) {
     return (
@@ -35,8 +89,8 @@ export const RoutineDetailPage: React.FC = () => {
           <ChevronLeft size={24} color={colors.textPrimary} />
         </Pressable>
         <View style={styles.headerRight}>
-          <Pressable style={[styles.adaptBtn, { borderColor: 'rgba(58, 134, 255, 0.5)' }]}>
-            <Sparkles size={14} color="#3A86FF" />
+          <Pressable style={[styles.adaptBtn, { borderColor: 'rgba(255, 255, 255, 0.2)' }]}>
+            <Sparkles size={14} color="#FFFFFF" />
             <Text style={[styles.adaptBtnText, { color: colors.textPrimary }]}>Adaptar</Text>
           </Pressable>
           <Pressable style={styles.iconBtn}>
@@ -50,7 +104,7 @@ export const RoutineDetailPage: React.FC = () => {
         <View style={styles.titleSection}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>{routine.name}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {routine.exercises.length} ejercicios, 68 min
+            {routine.exercises.length} ejercicios, {estimatedDuration} min
           </Text>
         </View>
 
@@ -58,21 +112,38 @@ export const RoutineDetailPage: React.FC = () => {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Distribución muscular</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-            {/* Fake data to match the screenshot exactly */}
-            {[
-              { name: 'Femoral', percent: '29%' },
-              { name: 'Cuádriceps', percent: '20%' },
-              { name: 'Glúteos', percent: '20%' }
-            ].map((muscle, idx) => (
+            {muscleDistribution.map((muscle, idx) => (
               <View key={idx} style={[styles.muscleCard, { backgroundColor: '#141414' }]}>
-                {/* 3D Body mockup placeholder */}
+                {/* 3D Body mockup from react-native-body-highlighter */}
                 <View style={styles.bodyMockup}>
-                  <Image source={require('../../../../assets/ai_body_scan.png')} style={styles.bodyImg} contentFit="cover" />
-                  <View style={[styles.muscleHighlight, { backgroundColor: '#3A86FF' }]} />
+                  {(() => {
+                    const config = MUSCLE_MAP[muscle.name] || { side: 'front', slugs: [] };
+                    const highlightData = config.slugs.map((slug) => ({
+                      slug,
+                      styles: {
+                        fill: '#FFFFFF',
+                        stroke: '#FFFFFF',
+                        strokeWidth: 2,
+                      },
+                    }));
+
+                    return (
+                      <View style={{ width: 44, height: 86, pointerEvents: 'none', justifyContent: 'center', alignItems: 'center' }}>
+                        <Body
+                          data={highlightData as any}
+                          gender="male"
+                          side={config.side}
+                          scale={0.3}
+                          border="#252533"
+                          defaultFill="#16161C"
+                        />
+                      </View>
+                    );
+                  })()}
                 </View>
                 <View style={styles.muscleInfo}>
                   <Text style={[styles.muscleName, { color: colors.textSecondary }]}>{muscle.name}</Text>
-                  <Text style={[styles.musclePercent, { color: colors.textPrimary }]}>{muscle.percent}</Text>
+                  <Text style={[styles.musclePercent, { color: colors.textPrimary }]}>{muscle.percentage}%</Text>
                 </View>
               </View>
             ))}
@@ -94,7 +165,7 @@ export const RoutineDetailPage: React.FC = () => {
             {routine.exercises.map((ex, index) => (
               <View key={ex.id || index} style={styles.exerciseRow}>
                 <View style={styles.exImageContainer}>
-                  <Image source={{ uri: ex.gifUrl }} style={styles.exImage} contentFit="cover" />
+                  <Image source={getExerciseAnatomicalAsset(ex)} style={styles.exImage} contentFit="cover" />
                 </View>
                 <View style={styles.exDetails}>
                   <Text style={[styles.exMeta, { color: colors.textSecondary }]}>

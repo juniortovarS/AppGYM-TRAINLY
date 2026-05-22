@@ -1,26 +1,26 @@
 export const colors = {
-  background: '#0B0B0B',     // Deep Matte Black
-  card: '#141414',           // Premium Dark Gray for Cards
-  cardElevated: '#1A1A1A',   // Lighter Gray for Inner elements
+  background: '#050508',     // Deep Matte Black
+  card: '#121214',           // Premium Dark Gray for Cards
+  cardElevated: '#1C1C1E',   // Lighter Gray for Inner elements
   border: '#2C2C2E',         // Subdued border
-  borderFocus: '#FFD700',    // Glowing Gold Focus
+  borderFocus: '#FFFFFF',    // Glowing White Focus
   
   // Accents
-  primary: '#FFD700',        // Premium Gold Main
-  secondary: '#FFFFFF',      // Elegant White
-  accentGold: '#FFD700',     // Standard Gold
-  accentGoldDark: '#B8860B', // Deep Gold for gradients
+  primary: '#FFFFFF',        // Premium White Main
+  secondary: '#AEAEB2',      // Medium Gray
+  accentGold: '#E5E5EA',     // Silver / Light Gray
+  accentGoldDark: '#8E8E93', // Medium Gray
   accentRed: '#FF3B30',      // Alert Red
   
   // Text Colors
   textPrimary: '#FFFFFF',
   textSecondary: '#AEAEB2',  // Light silver gray
   textMuted: '#636366',      // Dark slate gray for descriptions
-  textInverse: '#000000',    // Black text for high-contrast on gold/white
+  textInverse: '#000000',    // Black text
   
   // Glassmorphic backgrounds
-  glassBg: 'rgba(20, 20, 20, 0.75)',
-  glassBorder: 'rgba(255, 215, 0, 0.15)',
+  glassBg: 'rgba(18, 18, 20, 0.85)',
+  glassBorder: 'rgba(255, 255, 255, 0.1)',
 };
 
 export type ColorsType = typeof colors;

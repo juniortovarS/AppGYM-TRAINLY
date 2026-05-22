@@ -1,9 +1,13 @@
 import React from 'react';
+import { View } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { AnimatePresence } from 'moti';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTheme } from '../hooks/useTheme';
+import { useActivityStore } from '../store/useActivityStore';
+import { GlobalWorkoutToast } from '../components/GlobalWorkoutToast';
 
 // Import Screens
 import { LoginScreen } from '../screens/LoginScreen';
@@ -104,6 +108,7 @@ const MainNavigator = () => {
 export const AppNavigator = () => {
   const { isLoggedIn } = useAuthStore();
   const { colors } = useTheme();
+  const { showWorkoutCompletedToast } = useActivityStore();
 
   const MyTheme = {
     ...DefaultTheme,
@@ -118,9 +123,15 @@ export const AppNavigator = () => {
   };
 
   return (
-    <NavigationContainer theme={MyTheme}>
-      {isLoggedIn ? <MainNavigator /> : <AuthNavigator />}
-    </NavigationContainer>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <NavigationContainer theme={MyTheme}>
+        {isLoggedIn ? <MainNavigator /> : <AuthNavigator />}
+      </NavigationContainer>
+
+      <AnimatePresence>
+        {showWorkoutCompletedToast && <GlobalWorkoutToast />}
+      </AnimatePresence>
+    </View>
   );
 };
 

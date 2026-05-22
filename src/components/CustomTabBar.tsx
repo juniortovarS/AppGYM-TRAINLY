@@ -15,13 +15,15 @@ import Animated, {
 import { useTheme } from '../hooks/useTheme';
 import { Users, Trophy, Plus, Dumbbell, User, Sparkles, Calendar, Folder, X } from 'lucide-react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TAB_BAR_WIDTH = SCREEN_WIDTH - 20;
-// We divide by 5 visually, even though there are 4 actual routes
-const TAB_WIDTH = TAB_BAR_WIDTH / 5;
+import { useAppWidth } from '../hooks/useAppWidth';
 
 export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   const { colors, typography } = useTheme();
+  const SCREEN_WIDTH = useAppWidth();
+  const TAB_BAR_WIDTH = SCREEN_WIDTH - 20;
+  // We divide by 5 visually, even though there are 4 actual routes
+  const TAB_WIDTH = TAB_BAR_WIDTH / 5;
+
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -41,7 +43,7 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
       damping: 18,
       stiffness: 150,
     });
-  }, [state.index]);
+  }, [state.index, TAB_WIDTH]);
 
   useEffect(() => {
     if (isModalOpen) {
@@ -138,79 +140,122 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
         MODAL GLOBAL DEL FAB
         =====================================
       */}
-      <Modal visible={isModalOpen} transparent animationType="fade">
-        <Pressable style={styles.modalOverlay} onPress={() => setIsModalOpen(false)}>
-          <Pressable style={[styles.modalContent, { backgroundColor: '#1C1C1E', borderColor: colors.border }]} onPress={(e) => e.stopPropagation()}>
-            {/* Opciones del Modal Clones de Captura */}
-            
-            <Pressable style={styles.modalOption}>
-              <View style={[styles.modalIconBg, { borderColor: '#3A86FF' }]}>
-                <Sparkles size={20} color="#3A86FF" />
-              </View>
-              <View style={styles.modalOptionTextCol}>
-                <Text style={styles.modalOptionTitle}>Entrenamiento con IA</Text>
-                <Text style={styles.modalOptionSub}>Genera un entrenamiento a tu medida</Text>
-              </View>
-            </Pressable>
-
-            <Pressable 
-              onPress={() => {
-                setIsModalOpen(false);
-                navigation.navigate('ActiveWorkout' as never);
-              }}
-              style={styles.modalOption}
-            >
-              <View style={[styles.modalIconBg, { borderColor: '#3A3A3C', backgroundColor: '#2C2C2E' }]}>
-                <Dumbbell size={20} color="#A0A0A0" />
-              </View>
-              <View style={styles.modalOptionTextCol}>
-                <Text style={styles.modalOptionTitle}>Entrenamiento Vacío</Text>
-                <Text style={styles.modalOptionSub}>Añade ejercicios a medida que entrenas</Text>
-              </View>
-            </Pressable>
-
-            <Pressable 
-              onPress={() => {
-                setIsModalOpen(false);
-                navigation.navigate('CreateRoutine' as never);
-              }}
-              style={styles.modalOption}
-            >
-              <View style={[styles.modalIconBg, { borderColor: '#3A3A3C', backgroundColor: '#2C2C2E' }]}>
-                <Calendar size={20} color="#A0A0A0" />
-              </View>
-              <View style={styles.modalOptionTextCol}>
-                <Text style={styles.modalOptionTitle}>Rutina</Text>
-                <Text style={styles.modalOptionSub}>Crea una rutina para usar más adelante</Text>
-              </View>
-            </Pressable>
-
-            <Pressable style={styles.modalOption}>
-              <View style={[styles.modalIconBg, { borderColor: '#3A3A3C', backgroundColor: '#2C2C2E' }]}>
-                <Folder size={20} color="#A0A0A0" />
-              </View>
-              <View style={styles.modalOptionTextCol}>
-                <Text style={styles.modalOptionTitle}>Planificación</Text>
-                <Text style={styles.modalOptionSub}>Crea un plan de entrenamiento semanal</Text>
-              </View>
-            </Pressable>
-
-          </Pressable>
-        </Pressable>
-      </Modal>
-
       {/* 
         =====================================
-        TAB BAR
+        TAB BAR (CONTAINS MODAL IN FRONT)
         =====================================
       */}
-      <View style={styles.outerContainer}>
-        <View style={[styles.container, { backgroundColor: '#000', borderColor: '#2C2C2E' }]}>
+      <View style={styles.outerContainer} pointerEvents="box-none">
+        {/* 
+          =====================================
+          MODAL GLOBAL DEL FAB (CUSTOM OVERLAY)
+          =====================================
+        */}
+        {isModalOpen && (
+          <Animated.View 
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(200)}
+            style={[
+              StyleSheet.absoluteFillObject,
+              styles.modalOverlay,
+            ]}
+          >
+            <Pressable 
+              style={StyleSheet.absoluteFillObject} 
+              onPress={() => setIsModalOpen(false)}
+            />
+            <Animated.View 
+              entering={SlideInDown.springify().damping(15)}
+              exiting={SlideOutDown.springify().damping(15)}
+              style={[
+                styles.modalContent, 
+                { backgroundColor: '#0D0D0F', borderColor: '#222226' }
+              ]} 
+            >
+              <View style={[styles.dragHandle, { backgroundColor: '#2C2C35' }]} />
+              
+              <Text style={[styles.modalHeaderTitle, { color: '#FFF', fontSize: 11, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 16, opacity: 0.5, textAlign: 'center' }]}>
+                Crear Nuevo
+              </Text>
+              
+              <Pressable 
+                style={({ pressed }) => [
+                  styles.modalOption, 
+                  { backgroundColor: pressed ? '#1C1C20' : '#141416', borderRadius: 16, paddingHorizontal: 16, marginBottom: 10, borderWidth: 1, borderColor: '#222226' }
+                ]}
+              >
+                <View style={[styles.modalIconBg, { borderColor: '#FFF', backgroundColor: 'rgba(255,255,255,0.06)' }]}>
+                  <Sparkles size={20} color="#FFF" />
+                </View>
+                <View style={styles.modalOptionTextCol}>
+                  <Text style={styles.modalOptionTitle}>Entrenamiento con IA</Text>
+                  <Text style={styles.modalOptionSub}>Genera un entrenamiento a tu medida</Text>
+                </View>
+              </Pressable>
+
+              <Pressable 
+                onPress={() => {
+                  setIsModalOpen(false);
+                  navigation.navigate('ActiveWorkout' as never);
+                }}
+                style={({ pressed }) => [
+                  styles.modalOption, 
+                  { backgroundColor: pressed ? '#1C1C20' : '#141416', borderRadius: 16, paddingHorizontal: 16, marginBottom: 10, borderWidth: 1, borderColor: '#222226' }
+                ]}
+              >
+                <View style={[styles.modalIconBg, { borderColor: '#4E4E52', backgroundColor: 'rgba(255,255,255,0.02)' }]}>
+                  <Dumbbell size={20} color="#AEAEB2" />
+                </View>
+                <View style={styles.modalOptionTextCol}>
+                  <Text style={styles.modalOptionTitle}>Entrenamiento Vacío</Text>
+                  <Text style={styles.modalOptionSub}>Añade ejercicios a medida que entrenas</Text>
+                </View>
+              </Pressable>
+
+              <Pressable 
+                onPress={() => {
+                  setIsModalOpen(false);
+                  navigation.navigate('CreateRoutine' as never);
+                }}
+                style={({ pressed }) => [
+                  styles.modalOption, 
+                  { backgroundColor: pressed ? '#1C1C20' : '#141416', borderRadius: 16, paddingHorizontal: 16, marginBottom: 10, borderWidth: 1, borderColor: '#222226' }
+                ]}
+              >
+                <View style={[styles.modalIconBg, { borderColor: '#4E4E52', backgroundColor: 'rgba(255,255,255,0.02)' }]}>
+                  <Calendar size={20} color="#AEAEB2" />
+                </View>
+                <View style={styles.modalOptionTextCol}>
+                  <Text style={styles.modalOptionTitle}>Rutina</Text>
+                  <Text style={styles.modalOptionSub}>Crea una rutina para usar más adelante</Text>
+                </View>
+              </Pressable>
+
+              <Pressable 
+                style={({ pressed }) => [
+                  styles.modalOption, 
+                  { backgroundColor: pressed ? '#1C1C20' : '#141416', borderRadius: 16, paddingHorizontal: 16, borderWidth: 1, borderColor: '#222226' }
+                ]}
+              >
+                <View style={[styles.modalIconBg, { borderColor: '#4E4E52', backgroundColor: 'rgba(255,255,255,0.02)' }]}>
+                  <Folder size={20} color="#AEAEB2" />
+                </View>
+                <View style={styles.modalOptionTextCol}>
+                  <Text style={styles.modalOptionTitle}>Planificación</Text>
+                  <Text style={styles.modalOptionSub}>Crea un plan de entrenamiento semanal</Text>
+                </View>
+              </Pressable>
+
+            </Animated.View>
+          </Animated.View>
+        )}
+
+        <View style={[styles.container, { width: TAB_BAR_WIDTH, backgroundColor: '#000', borderColor: '#2C2C2E' }]}>
           {/* Background Indicator */}
           <Animated.View
             style={[
               styles.indicator,
-              { backgroundColor: `${colors.primary}12`, borderColor: colors.primary },
+              { width: TAB_WIDTH - 8, backgroundColor: `${colors.primary}12`, borderColor: colors.primary },
               animatedIndicatorStyle,
             ]}
           />
@@ -219,8 +264,8 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
           {renderTab(state.routes[0], 0)}
           {renderTab(state.routes[1], 1)}
 
-          <Pressable onPress={handleFabPress} style={styles.fabContainer}>
-            <Animated.View style={[styles.fabCircle, animatedFabContainerStyle, { backgroundColor: isModalOpen ? '#A0A0A0' : '#FFD700' }]}>
+          <Pressable onPress={handleFabPress} style={[styles.fabContainer, { width: TAB_WIDTH }]}>
+            <Animated.View style={[styles.fabCircle, animatedFabContainerStyle, { backgroundColor: isModalOpen ? '#AEAEB2' : '#FFFFFF' }]}>
               <Animated.View style={animatedFabIconStyle}>
                 <Plus size={32} color="#000" strokeWidth={2.5} />
               </Animated.View>
@@ -238,15 +283,16 @@ export const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, 
 const styles = StyleSheet.create({
   outerContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 16,
-    width: '100%',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    justifyContent: 'center',
     zIndex: 999,
   },
   container: {
     flexDirection: 'row',
-    width: TAB_BAR_WIDTH,
     height: 70,
     borderRadius: 35,
     borderWidth: 1,
@@ -256,6 +302,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
     alignItems: 'center',
+    marginBottom: Platform.OS === 'ios' ? 24 : 16,
   },
   tabButton: {
     flex: 1,
@@ -277,14 +324,12 @@ const styles = StyleSheet.create({
   indicator: {
     position: 'absolute',
     left: 4,
-    width: TAB_WIDTH - 8,
     height: 62,
     top: 3,
     borderRadius: 31,
     borderWidth: 1,
   },
   fabContainer: {
-    width: TAB_WIDTH,
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
@@ -296,34 +341,46 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FFD700',
+    shadowColor: '#FFFFFF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 15,
     elevation: 8,
   },
   modalOverlay: {
-    flex: 1,
     backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'flex-end',
+    alignItems: 'center',
     paddingBottom: 110, // Leave space for TabBar
     paddingHorizontal: 20,
   },
   modalContent: {
+    width: '100%',
+    maxWidth: 440,
     borderRadius: 24,
-    padding: 16,
+    padding: 20,
     borderWidth: 1,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 2.5,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  modalHeaderTitle: {
+    textAlign: 'center',
   },
   modalOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   modalIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 2,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
@@ -334,12 +391,12 @@ const styles = StyleSheet.create({
   },
   modalOptionTitle: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   modalOptionSub: {
-    color: '#A0A0A0',
-    fontSize: 13,
+    color: '#AEAEB2',
+    fontSize: 12,
   },
 });

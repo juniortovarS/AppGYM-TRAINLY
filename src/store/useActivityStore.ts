@@ -20,6 +20,7 @@ export interface WorkoutExerciseLog {
   name: string;
   bodyPart: string;
   category: string;
+  gifUrl?: string;
   sets: SetLog[];
 }
 
@@ -64,21 +65,35 @@ interface ActivityState {
   routines: Routine[];
   activeWorkoutSession: WorkoutSession | null;
   workoutHistory: WorkoutHistoryItem[];
+  isLoading: boolean;
   draftRoutineExercises: Exercise[];
+  userWeight: number | null;
+  userHeight: number | null;
+  friendsList: string[];
   addExerciseToDraft: (exercise: Exercise) => void;
   removeExerciseFromDraft: (exerciseId: string) => void;
   clearDraft: () => void;
+  setDraftExercises: (exercises: Exercise[]) => void;
 
   // Actions
-  createRoutine: (name: string, description: string, selectedExercises: Exercise[]) => void;
+  setWeightAndHeight: (weight: number | null, height: number | null) => void;
+  addFriend: (name: string) => void;
+  removeFriend: (name: string) => void;
+  createRoutine: (name: string, description: string, selectedExercises: Exercise[]) => string;
   generateRoutineFromQuiz: (goal: string, experience: string, frequency: string, equipment: string) => Routine;
   startWorkoutSession: (routine: Routine) => void;
   updateWorkoutSet: (exerciseId: string, setIndex: number, field: keyof SetLog, value: any) => void;
   addSetToExercise: (exerciseId: string) => void;
   removeSetFromExercise: (exerciseId: string, setIndex: number) => void;
+  removeExerciseFromSession: (exerciseId: string) => void;
+  replaceExerciseInSession: (exerciseId: string, newExercise: Exercise) => void;
   finishWorkoutSession: () => boolean; // returns true if successfully saved, false if not saved (no completed exercises)
   cancelWorkoutSession: () => void;
   refreshMetrics: () => Promise<void>;
+  weeklyWorkoutGoal: number;
+  setWeeklyWorkoutGoal: (goal: number) => void;
+  showWorkoutCompletedToast: boolean;
+  setShowWorkoutCompletedToast: (show: boolean) => void;
 }
 
 // Seed exercises
@@ -360,6 +375,22 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   workoutHistory: [], // Start empty as requested ("solo si es que hice un ejercicio")
   isLoading: false,
   draftRoutineExercises: [],
+  userWeight: null,
+  userHeight: null,
+  friendsList: [],
+  weeklyWorkoutGoal: 4,
+  showWorkoutCompletedToast: false,
+
+  setWeeklyWorkoutGoal: (goal) => set({ weeklyWorkoutGoal: goal }),
+  setShowWorkoutCompletedToast: (show) => set({ showWorkoutCompletedToast: show }),
+  setWeightAndHeight: (weight, height) => set({ userWeight: weight, userHeight: height }),
+  addFriend: (name) => set((state) => {
+    if (state.friendsList.includes(name)) return {};
+    return { friendsList: [...state.friendsList, name] };
+  }),
+  removeFriend: (name) => set((state) => ({
+    friendsList: state.friendsList.filter((f) => f !== name)
+  })),
 
   addExerciseToDraft: (exercise) => {
     set((state) => {
@@ -378,9 +409,14 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     set({ draftRoutineExercises: [] });
   },
 
+  setDraftExercises: (exercises) => {
+    set({ draftRoutineExercises: exercises });
+  },
+
   createRoutine: (name, description, selectedExercises) => {
+    const newId = `routine-${Date.now()}`;
     const newRoutine: Routine = {
-      id: `routine-${Date.now()}`,
+      id: newId,
       name,
       description,
       exercises: selectedExercises,
@@ -389,6 +425,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       routines: [...state.routines, newRoutine],
       draftRoutineExercises: [], // clear draft on save
     }));
+    return newId;
   },
 
   generateRoutineFromQuiz: (goal, experience, frequency, equipment) => {
@@ -451,6 +488,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       name: ex.name,
       bodyPart: ex.bodyPart,
       category: ex.category,
+      gifUrl: ex.gifUrl,
       sets: [
         { reps: 10, weight: ex.category === 'Peso corporal' ? 0 : 12, completed: false },
         { reps: 10, weight: ex.category === 'Peso corporal' ? 0 : 12, completed: false },
@@ -527,6 +565,50 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         return { ...ex, sets: updatedSets };
       });
 
+      return {
+        activeWorkoutSession: {
+          ...state.activeWorkoutSession,
+          exercises: updatedExercises,
+        },
+      };
+    });
+  },
+
+  removeExerciseFromSession: (exerciseId) => {
+    set((state) => {
+      if (!state.activeWorkoutSession) return {};
+      const updatedExercises = state.activeWorkoutSession.exercises.filter(
+        (ex) => ex.exerciseId !== exerciseId
+      );
+      return {
+        activeWorkoutSession: {
+          ...state.activeWorkoutSession,
+          exercises: updatedExercises,
+        },
+      };
+    });
+  },
+
+  replaceExerciseInSession: (exerciseId, newExercise) => {
+    set((state) => {
+      if (!state.activeWorkoutSession) return {};
+      const updatedExercises = state.activeWorkoutSession.exercises.map((ex) => {
+        if (ex.exerciseId !== exerciseId) return ex;
+        // Keep same number of sets but reset values
+        const newSets = ex.sets.map(() => ({
+          reps: 10,
+          weight: newExercise.category === 'Peso corporal' ? 0 : 12,
+          completed: false,
+        }));
+        return {
+          exerciseId: newExercise.id,
+          name: newExercise.name,
+          bodyPart: newExercise.bodyPart,
+          category: newExercise.category,
+          gifUrl: newExercise.gifUrl,
+          sets: newSets,
+        };
+      });
       return {
         activeWorkoutSession: {
           ...state.activeWorkoutSession,

@@ -18,8 +18,8 @@ import { useTheme } from '../hooks/useTheme';
 import { useActivityStore, Exercise } from '../store/useActivityStore';
 import { Search, ChevronDown, Check, X, ChevronLeft, Plus } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+import { getExerciseAnatomicalAsset } from '../utils/exerciseAssets';
+import { useAppHeight } from '../hooks/useAppWidth';
 const MUSCLE_GROUPS = ['Cualquier parte del cuerpo', 'Bíceps', 'Tríceps', 'Hombros', 'Piernas', 'Pecho', 'Espalda', 'Core'];
 const CATEGORIES = ['Cualquier categoría', 'Mancuernas', 'Máquina', 'Peso corporal'];
 
@@ -27,6 +27,7 @@ export const EjerciciosScreen: React.FC = () => {
   const { colors, spacing, typography } = useTheme();
   const navigation = useNavigation();
   const { exercises, addExerciseToDraft, draftRoutineExercises } = useActivityStore();
+  const SCREEN_HEIGHT = useAppHeight();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState('Cualquier parte del cuerpo');
@@ -35,6 +36,13 @@ export const EjerciciosScreen: React.FC = () => {
   const [isMuscleModalVisible, setIsMuscleModalVisible] = useState(false);
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [showCatalogGif, setShowCatalogGif] = useState(false);
+
+  React.useEffect(() => {
+    if (selectedExercise) {
+      setShowCatalogGif(false);
+    }
+  }, [selectedExercise]);
 
   // Filtering Logic
   const filteredExercises = exercises.filter((ex) => {
@@ -194,7 +202,7 @@ export const EjerciciosScreen: React.FC = () => {
                 >
                   <View style={[styles.imageContainer, { borderColor: colors.border }]}>
                     <Image
-                      source={{ uri: ex.gifUrl }}
+                      source={getExerciseAnatomicalAsset(ex)}
                       style={styles.exerciseImage}
                       contentFit="cover"
                       transition={200}
@@ -385,11 +393,19 @@ export const EjerciciosScreen: React.FC = () => {
               <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
                 <View style={[styles.largeGifWrapper, { borderColor: colors.border, backgroundColor: '#050508' }]}>
                   <Image
-                    source={{ uri: selectedExercise.gifUrl }}
+                    source={showCatalogGif ? { uri: selectedExercise.gifUrl } : getExerciseAnatomicalAsset(selectedExercise)}
                     style={styles.largeGif}
-                    contentFit="contain"
+                    contentFit={showCatalogGif ? "contain" : "cover"}
                     transition={200}
                   />
+                  <Pressable
+                    onPress={() => setShowCatalogGif(!showCatalogGif)}
+                    style={styles.toggleGifBtn}
+                  >
+                    <Text style={styles.toggleGifBtnText}>
+                      {showCatalogGif ? "Ver Anatomía" : "Ver Movimiento"}
+                    </Text>
+                  </Pressable>
                 </View>
 
                 <Text style={[styles.detailNameText, { color: colors.textPrimary, fontSize: typography.sizes.md, fontWeight: typography.weights.bold }]}>
@@ -457,7 +473,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   draftBadge: {
-    backgroundColor: '#FFD700',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     width: 24,
     height: 24,
@@ -663,7 +679,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   addRoutineBtn: {
-    backgroundColor: '#FFD700',
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -675,5 +691,22 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  toggleGifBtn: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  toggleGifBtnText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

@@ -65,7 +65,6 @@ export const TrainingHomePage: React.FC = () => {
               from={{ opacity: 0, translateY: 20 }}
               animate={{ opacity: 1, translateY: 0 }}
               transition={{ delay: idx * 100 }}
-              transition={{ delay: idx * 100 }}
             >
               <Pressable 
                 onPress={() => navigation.navigate('RoutineDetail', { routineId: routine.id })}

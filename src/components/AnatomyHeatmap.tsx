@@ -1,106 +1,116 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
-import Svg, { Path, G, Defs, LinearGradient, Stop } from 'react-native-svg';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import { View, StyleSheet } from 'react-native';
+import Body from 'react-native-body-highlighter';
+import { useAppWidth } from '../hooks/useAppWidth';
+import { useActivityStore } from '../store/useActivityStore';
 
 export interface AnatomyHeatmapProps {
-  chestIntensity?: number; // 0 to 1
+  // Keeping props optional for compatibility, but we now read directly from store
+  chestIntensity?: number;
   bicepsIntensity?: number;
   absIntensity?: number;
   quadsIntensity?: number;
 }
 
-export const AnatomyHeatmap: React.FC<AnatomyHeatmapProps> = ({
-  chestIntensity = 0.8,
-  bicepsIntensity = 0.5,
-  absIntensity = 0,
-  quadsIntensity = 0,
-}) => {
-  // Calculamos el tamaño responsivo para que encaje perfecto en el celular
-  // 2 cuerpos con margen.
-  const svgWidth = (SCREEN_WIDTH - 60) / 2;
-  const svgHeight = svgWidth * 2.2; // Mantener aspect ratio 100x220
+export const AnatomyHeatmap: React.FC<AnatomyHeatmapProps> = () => {
+  const { workoutHistory } = useActivityStore();
+  const SCREEN_WIDTH = useAppWidth();
+  
+  // Calculate responsive sizing
+  const containerWidth = SCREEN_WIDTH - 40;
+  const itemWidth = (containerWidth - 16) / 2;
+  const itemHeight = itemWidth * 1.95; // Aspect ratio of body outline
 
-  const getColor = (intensity: number) => {
-    if (intensity === 0) return 'rgba(255, 255, 255, 0.05)';
-    if (intensity < 0.4) return '#8B6508';
-    if (intensity < 0.7) return '#CDBA96';
-    return '#FFD700'; 
+  // Calculate completed sets per body part
+  const completedSetsByPart: Record<string, number> = {
+    'Bíceps': 0,
+    'Tríceps': 0,
+    'Hombros': 0,
+    'Piernas': 0,
+    'Pecho': 0,
+    'Espalda': 0,
+    'Core': 0,
   };
 
+  workoutHistory.forEach((session) => {
+    session.exercises.forEach((ex) => {
+      const part = ex.bodyPart;
+      if (completedSetsByPart[part] !== undefined) {
+        const completedSets = ex.sets.filter((s) => s.completed).length;
+        completedSetsByPart[part] += completedSets;
+      }
+    });
+  });
+
+  // Helper to resolve custom muscle highlighting styles based on completed sets
+  const getStyleForPart = (part: string) => {
+    const sets = completedSetsByPart[part] || 0;
+    if (sets === 0) {
+      return {
+        fill: '#121216',
+        stroke: '#252533',
+        strokeWidth: 0.5,
+      };
+    }
+
+    // Color intensity: 1-4 sets (bronze/dark gray), 5-10 sets (silver), 11+ sets (white)
+    const fill = sets <= 4 ? '#4E4E52' : sets <= 10 ? '#AEAEB2' : '#FFFFFF';
+
+    return {
+      fill,
+      stroke: '#FFFFFF',
+      strokeWidth: 0.8,
+    };
+  };
+
+  // Build data arrays for front and back using computed styles
+  const frontData = [
+    { slug: 'chest', styles: getStyleForPart('Pecho') },
+    { slug: 'biceps', styles: getStyleForPart('Bíceps') },
+    { slug: 'abs', styles: getStyleForPart('Core') },
+    { slug: 'obliques', styles: getStyleForPart('Core') },
+    { slug: 'quadriceps', styles: getStyleForPart('Piernas') },
+    { slug: 'front-deltoids', styles: getStyleForPart('Hombros') },
+  ];
+
+  const backData = [
+    { slug: 'triceps', styles: getStyleForPart('Tríceps') },
+    { slug: 'hamstring', styles: getStyleForPart('Piernas') },
+    { slug: 'calves', styles: getStyleForPart('Piernas') },
+    { slug: 'gluteal', styles: getStyleForPart('Piernas') },
+    { slug: 'upper-back', styles: getStyleForPart('Espalda') },
+    { slug: 'lower-back', styles: getStyleForPart('Espalda') },
+    { slug: 'trapezius', styles: getStyleForPart('Espalda') },
+    { slug: 'back-deltoids', styles: getStyleForPart('Hombros') },
+  ];
+
+  // Dynamic scaling factor based on column width
+  const scaleFactor = itemWidth / 140;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { width: containerWidth }]}>
       {/* Front Body */}
-      <View style={styles.bodyWrapper}>
-        <Svg width={svgWidth} height={svgHeight} viewBox="0 0 100 220">
-          <Defs>
-            <LinearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#FFD700" stopOpacity="1" />
-              <Stop offset="1" stopColor="#B8860B" stopOpacity="1" />
-            </LinearGradient>
-            <LinearGradient id="bronzeGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#CD7F32" stopOpacity="1" />
-              <Stop offset="1" stopColor="#8B4513" stopOpacity="1" />
-            </LinearGradient>
-            <LinearGradient id="silverGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#C0C0C0" stopOpacity="1" />
-              <Stop offset="1" stopColor="#808080" stopOpacity="1" />
-            </LinearGradient>
-          </Defs>
-          <G stroke="#FFF" strokeWidth="1" fill="none">
-            <Path d="M40 20 C40 10, 60 10, 60 20 C60 30, 55 35, 50 35 C45 35, 40 30, 40 20 Z" />
-            <Path d="M45 35 L45 42 M55 35 L55 42" />
-            <Path d="M50 45 L30 45 L25 65 L50 65 Z" fill={chestIntensity > 0.6 ? "url(#goldGrad)" : chestIntensity > 0 ? "url(#silverGrad)" : "rgba(255,255,255,0.05)"} />
-            <Path d="M50 45 L70 45 L75 65 L50 65 Z" fill={chestIntensity > 0.6 ? "url(#goldGrad)" : chestIntensity > 0 ? "url(#silverGrad)" : "rgba(255,255,255,0.05)"} />
-            <Path d="M35 65 L65 65 L60 100 L40 100 Z" fill={getColor(absIntensity)} />
-            <Path d="M50 65 L50 100 M40 75 L60 75 M40 85 L60 85" strokeWidth="0.5" />
-            <Path d="M30 45 C20 45, 15 55, 15 65 L25 65 Z" fill="url(#silverGrad)" />
-            <Path d="M70 45 C80 45, 85 55, 85 65 L75 65 Z" fill="url(#silverGrad)" />
-            <Path d="M15 65 L10 90 L20 90 L25 65 Z" fill={bicepsIntensity > 0.6 ? "url(#goldGrad)" : bicepsIntensity > 0 ? "url(#bronzeGrad)" : "rgba(255,255,255,0.05)"} />
-            <Path d="M85 65 L90 90 L80 90 L75 65 Z" fill={bicepsIntensity > 0.6 ? "url(#goldGrad)" : bicepsIntensity > 0 ? "url(#bronzeGrad)" : "rgba(255,255,255,0.05)"} />
-            <Path d="M10 90 L5 120 L15 120 L20 90 Z" />
-            <Path d="M90 90 L95 120 L85 120 L80 90 Z" />
-            <Path d="M5 120 L0 135 L10 135 L15 120 Z" />
-            <Path d="M95 120 L100 135 L90 135 L85 120 Z" />
-            <Path d="M40 100 L60 100 L65 115 L50 125 L35 115 Z" />
-            <Path d="M35 115 L25 160 L45 160 L50 125 Z" fill={getColor(quadsIntensity)} />
-            <Path d="M65 115 L75 160 L55 160 L50 125 Z" fill={getColor(quadsIntensity)} />
-            <Path d="M25 160 L20 200 L40 200 L45 160 Z" />
-            <Path d="M75 160 L80 200 L60 200 L55 160 Z" />
-            <Path d="M20 200 L15 210 L45 210 L40 200 Z" />
-            <Path d="M80 200 L85 210 L55 210 L60 200 Z" />
-          </G>
-        </Svg>
+      <View style={[styles.bodyWrapper, { width: itemWidth, height: itemHeight }]}>
+        <Body
+          data={frontData as any}
+          gender="male"
+          side="front"
+          scale={scaleFactor * 0.9}
+          border="#2C2C35"
+          defaultFill="#121216"
+        />
       </View>
 
       {/* Back Body */}
-      <View style={styles.bodyWrapper}>
-        <Svg width={svgWidth} height={svgHeight} viewBox="0 0 100 220">
-          <G stroke="#FFF" strokeWidth="1" fill="none">
-            <Path d="M40 20 C40 10, 60 10, 60 20 C60 30, 55 35, 50 35 C45 35, 40 30, 40 20 Z" />
-            <Path d="M45 35 L45 42 M55 35 L55 42" />
-            <Path d="M50 42 L25 65 L45 100 L50 100 Z" fill={getColor(0)} />
-            <Path d="M50 42 L75 65 L55 100 L50 100 Z" fill={getColor(0)} />
-            <Path d="M25 65 L15 65 L30 80 Z" fill="url(#silverGrad)" />
-            <Path d="M75 65 L85 65 L70 80 Z" fill="url(#silverGrad)" />
-            <Path d="M15 65 L10 90 L20 90 L25 65 Z" fill={bicepsIntensity > 0.6 ? "url(#bronzeGrad)" : "rgba(255,255,255,0.05)"} />
-            <Path d="M85 65 L90 90 L80 90 L75 65 Z" fill={bicepsIntensity > 0.6 ? "url(#bronzeGrad)" : "rgba(255,255,255,0.05)"} />
-            <Path d="M10 90 L5 120 L15 120 L20 90 Z" />
-            <Path d="M90 90 L95 120 L85 120 L80 90 Z" />
-            <Path d="M5 120 L0 135 L10 135 L15 120 Z" />
-            <Path d="M95 120 L100 135 L90 135 L85 120 Z" />
-            <Path d="M45 100 L55 100 L65 115 L50 125 L35 115 Z" />
-            <Path d="M35 115 C35 125, 45 125, 50 125 C45 115, 35 115, 35 115 Z" />
-            <Path d="M65 115 C65 125, 55 125, 50 125 C55 115, 65 115, 65 115 Z" />
-            <Path d="M35 115 L25 160 L45 160 L50 125 Z" />
-            <Path d="M65 115 L75 160 L55 160 L50 125 Z" />
-            <Path d="M25 160 L20 200 L40 200 L45 160 Z" />
-            <Path d="M75 160 L80 200 L60 200 L55 160 Z" />
-            <Path d="M20 200 L15 210 L45 210 L40 200 Z" />
-            <Path d="M80 200 L85 210 L55 210 L60 200 Z" />
-          </G>
-        </Svg>
+      <View style={[styles.bodyWrapper, { width: itemWidth, height: itemHeight }]}>
+        <Body
+          data={backData as any}
+          gender="male"
+          side="back"
+          scale={scaleFactor * 0.9}
+          border="#2C2C35"
+          defaultFill="#121216"
+        />
       </View>
     </View>
   );
@@ -113,11 +123,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
     marginVertical: 24,
-    paddingHorizontal: 20,
+    alignSelf: 'center',
   },
   bodyWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
+    borderRadius: 16,
+    backgroundColor: '#050508',
+    borderWidth: 1,
+    borderColor: '#1C1C24',
+    overflow: 'hidden',
   },
 });

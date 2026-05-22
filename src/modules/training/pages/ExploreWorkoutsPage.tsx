@@ -1,14 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useTheme } from '../../../../src/hooks/useTheme';
-import { Play, Dumbbell, Edit3, Plus } from 'lucide-react-native';
+import { Play, Dumbbell, Edit3 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useActivityStore } from '../../../../src/store/useActivityStore';
 import { useNavigation } from '@react-navigation/native';
 import { MotiView } from 'moti';
-
-const { width } = Dimensions.get('window');
+import { useAppWidth } from '../../../../src/hooks/useAppWidth';
 
 const EXPLORE_CARDS = [
   {
@@ -38,6 +37,8 @@ export const ExploreWorkoutsPage: React.FC = () => {
   const { colors, typography } = useTheme();
   const { routines } = useActivityStore();
   const navigation = useNavigation<any>();
+  const width = useAppWidth();
+  const cardWidth = width - 48;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -49,12 +50,47 @@ export const ExploreWorkoutsPage: React.FC = () => {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
+        {/* === EXPLORAR (Cards Fitness) === */}
+        <ScrollView 
+          horizontal 
+          snapToInterval={cardWidth + 16}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.exploreSliderContainer}
+        >
+          {EXPLORE_CARDS.map((card) => (
+            <Pressable key={card.id} style={[styles.cardContainerSquare, { width: cardWidth }]}>
+              <Image source={{ uri: card.image }} style={styles.cardImage} contentFit="cover" />
+              <View style={[styles.cardOverlay, { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
+                <View style={styles.tagsRow}>
+                  {card.tags.map(tag => (
+                    <View key={tag} style={[styles.tag, { backgroundColor: 'rgba(255, 255, 255, 0.9)' }]}>
+                      <Text style={[styles.tagText, { color: '#000' }]}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
+                
+                <View style={styles.cardBottom}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardTitle, { color: '#FFF' }]}>{card.title}</Text>
+                    <Text style={[styles.cardSubtitle, { color: 'rgba(255,255,255,0.8)' }]}>{card.subtitle}</Text>
+                  </View>
+                  <View style={[styles.playBtn, { backgroundColor: '#FFF' }]}>
+                    <Play size={20} color="#000" fill="#000" style={{ marginLeft: 4 }} />
+                  </View>
+                </View>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+
         {/* === TUS ENTRENAMIENTOS (Rutinas del Usuario) === */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Tus Entrenamientos</Text>
+        <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 28 }]}>Tus Entrenamientos</Text>
         
         {routines.length === 0 ? (
           <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[styles.emptyIconBg, { backgroundColor: 'rgba(255, 215, 0, 0.1)' }]}>
+            <View style={[styles.emptyIconBg, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
               <Dumbbell size={32} color={colors.primary} />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.textPrimary, fontSize: typography.sizes.md, fontWeight: 'bold' }]}>
@@ -108,36 +144,6 @@ export const ExploreWorkoutsPage: React.FC = () => {
             </MotiView>
           ))
         )}
-
-        {/* === EXPLORAR (Cards Fitness) === */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 24 }]}>Explorar</Text>
-        
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exploreSliderContainer}>
-          {EXPLORE_CARDS.map((card) => (
-            <Pressable key={card.id} style={styles.cardContainerSquare}>
-              <Image source={{ uri: card.image }} style={styles.cardImage} contentFit="cover" />
-              <View style={[styles.cardOverlay, { backgroundColor: 'rgba(0,0,0,0.4)' }]}>
-                <View style={styles.tagsRow}>
-                  {card.tags.map(tag => (
-                    <View key={tag} style={[styles.tag, { backgroundColor: 'rgba(255, 215, 0, 0.8)' }]}>
-                      <Text style={[styles.tagText, { color: '#000' }]}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-                
-                <View style={styles.cardBottom}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.cardTitle, { color: '#FFF' }]}>{card.title}</Text>
-                    <Text style={[styles.cardSubtitle, { color: 'rgba(255,255,255,0.8)' }]}>{card.subtitle}</Text>
-                  </View>
-                  <View style={[styles.playBtn, { backgroundColor: colors.primary }]}>
-                    <Play size={20} color="#000" style={{ marginLeft: 4 }} />
-                  </View>
-                </View>
-              </View>
-            </Pressable>
-          ))}
-        </ScrollView>
         
         <View style={{ height: 120 }} />
       </ScrollView>
@@ -233,7 +239,6 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   cardContainerSquare: {
-    width: 280, // Square-ish width
     height: 280,
     borderRadius: 20,
     overflow: 'hidden',
