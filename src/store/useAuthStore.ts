@@ -213,7 +213,7 @@ const handleAuthChange = async (session: any) => {
         .single();
 
       const timeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: { message: 'Database request timed out', code: 'TIMEOUT' } }), 2000)
+        setTimeout(() => resolve({ data: null, error: { message: 'Database request timed out', code: 'TIMEOUT' } }), 8000)
       );
 
       let { data: profile, error } = (await Promise.race([selectPromise, timeoutPromise])) as any;
@@ -242,7 +242,7 @@ const handleAuthChange = async (session: any) => {
           .single();
 
         const insertTimeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: { message: 'Insert request timed out', code: 'TIMEOUT' } }), 2000)
+          setTimeout(() => resolve({ data: null, error: { message: 'Insert request timed out', code: 'TIMEOUT' } }), 8000)
         );
 
         let { data: insertedProfile, error: insertError } = (await Promise.race([insertPromise, insertTimeoutPromise])) as any;
@@ -345,14 +345,14 @@ const handleAuthChange = async (session: any) => {
   }
 };
 
-// Safety fallback: if the app is still loading after 4.5 seconds, force loading to end.
+// Safety fallback: if the app is still loading after 15 seconds, force loading to end.
 // We do not cancel this timeout to make sure it always acts as an absolute guarantee.
 const safetyTimeout = setTimeout(() => {
   if (useAuthStore.getState().isLoading) {
     console.warn('Global safety timeout triggered: loading took too long, forcing isLoading to false.');
     useAuthStore.setState({ isLoading: false });
   }
-}, 4500);
+}, 15000);
 
 // Setup active session listener on auth status changes
 supabase.auth.onAuthStateChange(async (event, session) => {
