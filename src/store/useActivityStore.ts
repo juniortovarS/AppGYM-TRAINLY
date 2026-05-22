@@ -445,68 +445,102 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         const user = session?.user;
         if (user?.user_metadata) {
           const meta = user.user_metadata;
+          let hasChanges = false;
           
           // 1. Sync routines
+          let routinesChanged = false;
           if (meta.routines) {
             const mergedRoutines = [...routines];
             meta.routines.forEach((r: any) => {
               if (!mergedRoutines.some((existing) => existing.id === r.id)) {
                 mergedRoutines.push(r);
+                routinesChanged = true;
               }
             });
             routines = mergedRoutines;
+          }
+          const localRoutinesDiff = routines.length !== (meta.routines?.length || 0);
+          if (routinesChanged || localRoutinesDiff) {
+            hasChanges = true;
             await AppStorage.setItem(`trainly_routines_${email}`, JSON.stringify(routines));
           }
           
           // 2. Sync history
+          let historyChanged = false;
           if (meta.history) {
             const mergedHistory = [...workoutHistory];
             meta.history.forEach((h: any) => {
               if (!mergedHistory.some((existing) => existing.id === h.id)) {
                 mergedHistory.push(h);
+                historyChanged = true;
               }
             });
             workoutHistory = mergedHistory;
+          }
+          const localHistoryDiff = workoutHistory.length !== (meta.history?.length || 0);
+          if (historyChanged || localHistoryDiff) {
+            hasChanges = true;
             await AppStorage.setItem(`trainly_history_${email}`, JSON.stringify(workoutHistory));
           }
           
           // 3. Sync metrics
           if (meta.metrics) {
             const isLocalDefault = JSON.stringify(metrics) === JSON.stringify(DEFAULT_METRICS);
-            if (isLocalDefault || meta.metrics.caloriesBurned > metrics.caloriesBurned) {
-              metrics = meta.metrics;
-              await AppStorage.setItem(`trainly_metrics_${email}`, JSON.stringify(metrics));
+            const isSupabaseDifferent = JSON.stringify(meta.metrics) !== JSON.stringify(metrics);
+            if (isSupabaseDifferent) {
+              if (isLocalDefault || meta.metrics.caloriesBurned > metrics.caloriesBurned) {
+                metrics = meta.metrics;
+                await AppStorage.setItem(`trainly_metrics_${email}`, JSON.stringify(metrics));
+              } else {
+                hasChanges = true;
+              }
             }
+          } else if (JSON.stringify(metrics) !== JSON.stringify(DEFAULT_METRICS)) {
+            hasChanges = true;
           }
           
           // 4. Sync weekly goal
-          if (meta.goal && weeklyWorkoutGoal === 4) {
-            weeklyWorkoutGoal = Number(meta.goal);
-            await AppStorage.setItem(`trainly_goal_${email}`, String(weeklyWorkoutGoal));
+          if (meta.goal) {
+            if (weeklyWorkoutGoal === 4 && Number(meta.goal) !== 4) {
+              weeklyWorkoutGoal = Number(meta.goal);
+              await AppStorage.setItem(`trainly_goal_${email}`, String(weeklyWorkoutGoal));
+            } else if (weeklyWorkoutGoal !== Number(meta.goal)) {
+              hasChanges = true;
+            }
+          } else if (weeklyWorkoutGoal !== 4) {
+            hasChanges = true;
           }
           
           // 5. Sync friends
+          let friendsChanged = false;
           if (meta.friends) {
             const mergedFriends = [...friendsList];
             meta.friends.forEach((f: string) => {
               if (!mergedFriends.includes(f)) {
                 mergedFriends.push(f);
+                friendsChanged = true;
               }
             });
             friendsList = mergedFriends;
+          }
+          const localFriendsDiff = friendsList.length !== (meta.friends?.length || 0);
+          if (friendsChanged || localFriendsDiff) {
+            hasChanges = true;
             await AppStorage.setItem(`trainly_friends_${email}`, JSON.stringify(friendsList));
           }
 
-          // Push any merged changes back to Supabase metadata to keep both in sync
-          await supabase.auth.updateUser({
-            data: {
-              routines,
-              history: workoutHistory,
-              metrics,
-              goal: weeklyWorkoutGoal,
-              friends: friendsList
-            }
-          });
+          // Push any merged changes back to Supabase metadata only if they differ
+          if (hasChanges) {
+            await supabase.auth.updateUser({
+              data: {
+                routines,
+                history: workoutHistory,
+                metrics,
+                goal: weeklyWorkoutGoal,
+                friends: friendsList
+              }
+            });
+          }
         }
       } catch (authError) {
         console.warn('Could not sync user_metadata from Supabase auth:', authError);
