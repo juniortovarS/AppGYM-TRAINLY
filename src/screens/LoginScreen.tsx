@@ -38,6 +38,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [isEmailLoggingIn, setIsEmailLoggingIn] = useState(false);
   const [isGoogleLoggingIn, setIsGoogleLoggingIn] = useState(false);
 
+  React.useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash;
+      if (hash.includes('error=')) {
+        const params = new URLSearchParams(hash.substring(1));
+        const err = params.get('error_description') || params.get('error');
+        if (err) {
+          setErrorMsg('Error de Supabase: ' + decodeURIComponent(err.replace(/\+/g, ' ')));
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    }
+  }, []);
+
   const handleLogin = async () => {
     if (!email || !password) {
       setErrorMsg('Por favor completa todos los campos.');
