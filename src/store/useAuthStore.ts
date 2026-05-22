@@ -52,6 +52,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       provider: 'google',
       options: {
         redirectTo: Platform.OS === 'web' ? window.location.origin : 'trainly://',
+        queryParams: {
+          prompt: 'select_account',
+        },
       },
     });
 
