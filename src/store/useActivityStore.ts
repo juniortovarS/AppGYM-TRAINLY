@@ -378,13 +378,13 @@ const saveToStorage = async (email: string | null, key: string, value: any) => {
   try {
     await AppStorage.setItem(`trainly_${key}_${email}`, JSON.stringify(value));
     
-    // Sync to Supabase auth metadata (excluding active session to prevent rate limits)
+    // Sync to Supabase auth metadata (excluding active session to prevent rate limits) - non-blocking
     if (key !== 'active_session') {
-      await supabase.auth.updateUser({
+      supabase.auth.updateUser({
         data: {
           [key]: value
         }
-      });
+      }).catch(err => console.error(`Error syncing ${key} to Supabase in background:`, err));
     }
   } catch (e) {
     console.error(`Error saving ${key} to AppStorage/Supabase:`, e);
@@ -396,11 +396,11 @@ const removeFromStorage = async (email: string | null, key: string) => {
   try {
     await AppStorage.removeItem(`trainly_${key}_${email}`);
     if (key !== 'active_session') {
-      await supabase.auth.updateUser({
+      supabase.auth.updateUser({
         data: {
           [key]: null
         }
-      });
+      }).catch(err => console.error(`Error removing ${key} from Supabase in background:`, err));
     }
   } catch (e) {
     console.error(`Error removing ${key} from AppStorage/Supabase:`, e);
@@ -529,9 +529,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
             await AppStorage.setItem(`trainly_friends_${email}`, JSON.stringify(friendsList));
           }
 
-          // Push any merged changes back to Supabase metadata only if they differ
+          // Push any merged changes back to Supabase metadata only if they differ - non-blocking
           if (hasChanges) {
-            await supabase.auth.updateUser({
+            supabase.auth.updateUser({
               data: {
                 routines,
                 history: workoutHistory,
@@ -539,7 +539,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
                 goal: weeklyWorkoutGoal,
                 friends: friendsList
               }
-            });
+            }).catch(err => console.error('Error syncing metadata to Supabase in background:', err));
           }
         }
       } catch (authError) {
