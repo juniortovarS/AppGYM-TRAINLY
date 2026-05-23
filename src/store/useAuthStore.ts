@@ -205,132 +205,118 @@ const handleAuthChange = async (session: any) => {
   isProcessingAuth = true;
   try {
     if (session?.user) {
-      // Only set isLoading to true if not already logged in
       if (!useAuthStore.getState().isLoggedIn) {
         useAuthStore.setState({ isLoading: true });
       }
-      
-      console.log('useAuthStore: Starting user profile fetch...');
-      // Enforce a 2-second timeout on the profile database query
-      const selectPromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      const timeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: { message: 'Database request timed out', code: 'TIMEOUT' } }), 8000)
-      );
-
-      let { data: profile, error } = (await Promise.race([selectPromise, timeoutPromise])) as any;
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading user profile:', error.message || error);
-      }
-
-      // If the profile does not exist, and it wasn't a timeout, attempt to create it
-      if (error?.code !== 'TIMEOUT' && (!profile || error?.code === 'PGRST116')) {
-        console.log('useAuthStore: Profile not found, attempting to create one...');
-        const initialProfile = {
-          id: session.user.id,
-          name: session.user.user_metadata?.name || 'Usuario de Trainly',
-          email: session.user.email || '',
-          weight: Number(session.user.user_metadata?.weight || 70),
-          target: session.user.user_metadata?.target || 'Rendimiento',
-          level: 1,
-          xp: 100,
-        };
-
-        const insertPromise = supabase
-          .from('profiles')
-          .insert(initialProfile)
-          .select()
-          .single();
-
-        const insertTimeoutPromise = new Promise<{ data: null; error: { message: string; code: string } }>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: { message: 'Insert request timed out', code: 'TIMEOUT' } }), 8000)
-        );
-
-        let { data: insertedProfile, error: insertError } = (await Promise.race([insertPromise, insertTimeoutPromise])) as any;
-
-        if (insertError) {
-          console.warn('Error inserting full initial profile, attempting basic fallback:', insertError.message || insertError);
-          
-          if (insertError.code !== 'TIMEOUT') {
-            const basicProfile = {
-              id: session.user.id,
-              name: session.user.user_metadata?.name || 'Usuario de Trainly',
-              email: session.user.email || '',
-            };
-            const fallbackPromise = supabase
-              .from('profiles')
-              .insert(basicProfile)
-              .select()
-              .single();
-
-            const { data: fallbackProfile, error: fallbackError } = (await Promise.race([fallbackPromise, insertTimeoutPromise])) as any;
-
-            if (fallbackError) {
-              console.error('Failed to create user profile even with basic fallback:', fallbackError.message || fallbackError);
-            } else {
-              profile = fallbackProfile;
-            }
-          }
-        } else {
-          profile = insertedProfile;
-        }
-      } else if (error?.code === 'TIMEOUT') {
-        console.warn('useAuthStore: Profile fetch timed out, bypassing to use local fallback metadata.');
-      } else {
-        console.log('useAuthStore: Profile loaded successfully.');
-      }
 
       const email = session.user.email || '';
+      const meta = session.user.user_metadata || {};
 
-      // Load fallback onboarding state and height from local storage
+      // --- STEP 1: Log in IMMEDIATELY using session metadata (never blocks on DB) ---
       let hasCompletedOnboarding = false;
-      let localHeight = 170;
       try {
         const localOnb = await AppStorage.getItem(`onboarding_${email}`);
-        hasCompletedOnboarding = localOnb === 'true' || !!profile?.has_completed_onboarding;
-        
-        const localHStr = await AppStorage.getItem(`height_${email}`);
-        if (localHStr) {
-          localHeight = Number(localHStr);
-        }
-      } catch (e) {
-        console.error('Error reading local storage auth values:', e);
-        hasCompletedOnboarding = !!profile?.has_completed_onboarding;
-      }
-
-      const weightVal = profile?.weight ? Number(profile.weight) : Number(session.user.user_metadata?.weight || 70);
-      const heightVal = profile?.height ? Number(profile.height) : (localHeight || 170);
+        hasCompletedOnboarding = localOnb === 'true';
+      } catch (e) { /* ignore */ }
 
       useAuthStore.setState({
         isLoggedIn: true,
+        isLoading: false,
         user: {
-          name: profile?.name || session.user.user_metadata?.name || 'Usuario de Trainly',
+          name: meta.name || meta.full_name || 'Usuario de Trainly',
           email,
-          weight: weightVal,
-          target: profile?.target || session.user.user_metadata?.target || 'Rendimiento',
-          level: profile?.level ? Number(profile.level) : 1,
-          xp: profile?.xp ? Number(profile.xp) : 100,
+          weight: Number(meta.weight || 70),
+          target: meta.target || 'Rendimiento',
+          level: 1,
+          xp: 100,
           hasCompletedOnboarding,
         },
-        isLoading: false,
       });
 
-      // Synchronize activity store weights and heights
+      // Load activity data in background
       try {
         const { useActivityStore } = require('./useActivityStore');
-        useActivityStore.setState({
-          userWeight: weightVal,
-          userHeight: heightVal,
-        });
-        await useActivityStore.getState().loadUserData(email);
-      } catch (e) {
-        // Ignore if useActivityStore is not ready yet
-      }
+        useActivityStore.setState({ userWeight: Number(meta.weight || 70) });
+        useActivityStore.getState().loadUserData(email);
+      } catch (e) { /* ignore */ }
+
+      // --- STEP 2: Sync with DB in background (non-blocking) ---
+      (async () => {
+        try {
+          // Try to fetch profile
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (error?.code === 'PGRST116' || (!profile && !error)) {
+            // New user - create profile in background
+            console.log('useAuthStore: Creating profile for new user in background...');
+            const initialProfile = {
+              id: session.user.id,
+              name: meta.name || meta.full_name || 'Usuario de Trainly',
+              email,
+              weight: Number(meta.weight || 70),
+              target: meta.target || 'Rendimiento',
+              level: 1,
+              xp: 100,
+            };
+            const { data: inserted, error: insertErr } = await supabase
+              .from('profiles')
+              .insert(initialProfile)
+              .select()
+              .single();
+
+            if (insertErr) {
+              console.warn('useAuthStore: Could not create profile:', insertErr.message);
+            } else if (inserted) {
+              // Update state with freshly created profile (non-breaking update)
+              useAuthStore.setState((s) => ({
+                user: s.user ? {
+                  ...s.user,
+                  level: Number(inserted.level || 1),
+                  xp: Number(inserted.xp || 100),
+                } : s.user,
+              }));
+            }
+          } else if (profile) {
+            // Existing user - update state with real DB values
+            console.log('useAuthStore: Profile loaded from DB.');
+            let hasCompletedOnboardingDB = false;
+            try {
+              const localOnb = await AppStorage.getItem(`onboarding_${email}`);
+              hasCompletedOnboardingDB = localOnb === 'true' || !!profile.has_completed_onboarding;
+            } catch (e) {
+              hasCompletedOnboardingDB = !!profile.has_completed_onboarding;
+            }
+
+            useAuthStore.setState((s) => ({
+              user: s.user ? {
+                ...s.user,
+                name: profile.name || s.user.name,
+                weight: Number(profile.weight || s.user.weight),
+                target: profile.target || s.user.target,
+                level: Number(profile.level || 1),
+                xp: Number(profile.xp || 100),
+                hasCompletedOnboarding: hasCompletedOnboardingDB,
+              } : s.user,
+            }));
+
+            // Reload activity data with correct profile info
+            try {
+              const { useActivityStore } = require('./useActivityStore');
+              useActivityStore.setState({
+                userWeight: Number(profile.weight || 70),
+                userHeight: Number(profile.height || 170),
+              });
+            } catch (e) { /* ignore */ }
+          }
+        } catch (dbErr) {
+          console.warn('useAuthStore: Background DB sync failed (non-critical):', dbErr);
+        }
+      })();
+
     } else {
       useAuthStore.setState({
         isLoggedIn: false,
@@ -340,10 +326,9 @@ const handleAuthChange = async (session: any) => {
       try {
         const { useActivityStore } = require('./useActivityStore');
         useActivityStore.getState().clearUserData();
-      } catch (e) {
-        // Ignore if useActivityStore is not ready yet
-      }
+      } catch (e) { /* ignore */ }
     }
+
   } catch (err) {
     console.error('Global error in auth change handler:', err);
     // CRITICAL: Ensure we clear loading status so the UI doesn't hang!
