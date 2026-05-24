@@ -194,31 +194,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-let hasProcessedInitial = false;
-let isProcessingAuth = false;
+let authVersion = 0;
 
 const handleAuthChange = async (session: any) => {
-  if (isProcessingAuth) {
-    console.log('useAuthStore: handleAuthChange skipped to prevent concurrent execution.');
-    return;
-  }
-  isProcessingAuth = true;
+  const myVersion = ++authVersion;
   try {
     if (session?.user) {
-      if (!useAuthStore.getState().isLoggedIn) {
-        useAuthStore.setState({ isLoading: true });
-      }
+      useAuthStore.setState({ isLoading: true });
 
       const email = session.user.email || '';
       const meta = session.user.user_metadata || {};
 
-      // --- STEP 1: Log in IMMEDIATELY using session metadata (never blocks on DB) ---
+      // Read local onboarding flag (fast, local storage only)
       let hasCompletedOnboarding = false;
       try {
         const localOnb = await AppStorage.getItem(`onboarding_${email}`);
         hasCompletedOnboarding = localOnb === 'true';
       } catch (e) { /* ignore */ }
 
+      // Guard: if a newer call started while we were awaiting, abort
+      if (myVersion !== authVersion) return;
+
+      // Log in IMMEDIATELY using session metadata — zero DB dependency
       useAuthStore.setState({
         isLoggedIn: true,
         isLoading: false,
@@ -233,17 +230,16 @@ const handleAuthChange = async (session: any) => {
         },
       });
 
-      // Load activity data in background
+      // Load activity data in background (non-blocking)
       try {
         const { useActivityStore } = require('./useActivityStore');
         useActivityStore.setState({ userWeight: Number(meta.weight || 70) });
         useActivityStore.getState().loadUserData(email);
       } catch (e) { /* ignore */ }
 
-      // --- STEP 2: Sync with DB in background (non-blocking) ---
+      // Sync with DB in background — never blocks login
       (async () => {
         try {
-          // Try to fetch profile
           const { data: profile, error } = await supabase
             .from('profiles')
             .select('*')
@@ -251,59 +247,81 @@ const handleAuthChange = async (session: any) => {
             .single();
 
           if (error?.code === 'PGRST116' || (!profile && !error)) {
-            // New user - create profile in background
-            console.log('useAuthStore: Creating profile for new user in background...');
-            const initialProfile = {
-              id: session.user.id,
-              name: meta.name || meta.full_name || 'Usuario de Trainly',
-              email,
-              weight: Number(meta.weight || 70),
-              target: meta.target || 'Rendimiento',
-              level: 1,
-              xp: 100,
-            };
-            const { data: inserted, error: insertErr } = await supabase
+            // New user — create profile silently
+            const { data: inserted } = await supabase
               .from('profiles')
-              .insert(initialProfile)
+              .insert({
+                id: session.user.id,
+                name: meta.name || meta.full_name || 'Usuario de Trainly',
+                email,
+                weight: Number(meta.weight || 70),
+                target: meta.target || 'Rendimiento',
+                level: 1,
+                xp: 100,
+              })
               .select()
               .single();
 
-            if (insertErr) {
-              console.warn('useAuthStore: Could not create profile:', insertErr.message);
-            } else if (inserted) {
-              // Update state with freshly created profile (non-breaking update)
-              useAuthStore.setState((s) => ({
-                user: s.user ? {
-                  ...s.user,
-                  level: Number(inserted.level || 1),
-                  xp: Number(inserted.xp || 100),
-                } : s.user,
-              }));
+            if (inserted) {
+              useAuthStore.setState((s) => {
+                const currentUser = s.user || {
+                  name: meta.name || meta.full_name || 'Usuario de Trainly',
+                  email,
+                  weight: Number(meta.weight || 70),
+                  target: meta.target || 'Rendimiento',
+                  level: 1,
+                  xp: 100,
+                  hasCompletedOnboarding,
+                };
+                return {
+                  isLoggedIn: true,
+                  isLoading: false,
+                  user: {
+                    ...currentUser,
+                    level: Number(inserted.level || 1),
+                    xp: Number(inserted.xp || 100),
+                  }
+                };
+              });
             }
           } else if (profile) {
-            // Existing user - update state with real DB values
-            console.log('useAuthStore: Profile loaded from DB.');
-            let hasCompletedOnboardingDB = false;
+            // Existing user — update with real DB values
+            let hasCompletedOnboardingDB = true; // Default to true for existing users
             try {
               const localOnb = await AppStorage.getItem(`onboarding_${email}`);
-              hasCompletedOnboardingDB = localOnb === 'true' || !!profile.has_completed_onboarding;
+              if (localOnb === 'false') {
+                hasCompletedOnboardingDB = false;
+              } else {
+                hasCompletedOnboardingDB = localOnb === 'true' || profile.has_completed_onboarding !== false;
+              }
             } catch (e) {
-              hasCompletedOnboardingDB = !!profile.has_completed_onboarding;
+              hasCompletedOnboardingDB = profile.has_completed_onboarding !== false;
             }
 
-            useAuthStore.setState((s) => ({
-              user: s.user ? {
-                ...s.user,
-                name: profile.name || s.user.name,
-                weight: Number(profile.weight || s.user.weight),
-                target: profile.target || s.user.target,
+            useAuthStore.setState((s) => {
+              const currentUser = s.user || {
+                name: profile.name || meta.name || meta.full_name || 'Usuario de Trainly',
+                email,
+                weight: Number(profile.weight || meta.weight || 70),
+                target: profile.target || meta.target || 'Rendimiento',
                 level: Number(profile.level || 1),
                 xp: Number(profile.xp || 100),
                 hasCompletedOnboarding: hasCompletedOnboardingDB,
-              } : s.user,
-            }));
-
-            // Reload activity data with correct profile info
+              };
+              return {
+                isLoggedIn: true,
+                isLoading: false,
+                user: {
+                  ...currentUser,
+                  name: profile.name || currentUser.name,
+                  weight: Number(profile.weight || currentUser.weight),
+                  target: profile.target || currentUser.target,
+                  level: Number(profile.level || 1),
+                  xp: Number(profile.xp || 100),
+                  hasCompletedOnboarding: hasCompletedOnboardingDB,
+                }
+              };
+            });
             try {
               const { useActivityStore } = require('./useActivityStore');
               useActivityStore.setState({
@@ -318,54 +336,29 @@ const handleAuthChange = async (session: any) => {
       })();
 
     } else {
-      useAuthStore.setState({
-        isLoggedIn: false,
-        user: null,
-        isLoading: false,
-      });
+      useAuthStore.setState({ isLoggedIn: false, user: null, isLoading: false });
       try {
         const { useActivityStore } = require('./useActivityStore');
         useActivityStore.getState().clearUserData();
       } catch (e) { /* ignore */ }
     }
-
   } catch (err) {
     console.error('Global error in auth change handler:', err);
-    // CRITICAL: Ensure we clear loading status so the UI doesn't hang!
     useAuthStore.setState({ isLoading: false });
-  } finally {
-    isProcessingAuth = false;
   }
 };
 
-// Safety fallback: if the app is still loading after 15 seconds, force loading to end.
-// We do not cancel this timeout to make sure it always acts as an absolute guarantee.
-const safetyTimeout = setTimeout(() => {
+// Safety fallback: force-end loading after 10 seconds
+setTimeout(() => {
   if (useAuthStore.getState().isLoading) {
-    console.warn('Global safety timeout triggered: loading took too long, forcing isLoading to false.');
+    console.warn('Safety timeout: forcing isLoading to false.');
     useAuthStore.setState({ isLoading: false });
   }
-}, 15000);
+}, 10000);
 
-// Setup active session listener on auth status changes
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'INITIAL_SESSION' && hasProcessedInitial) {
-    return;
-  }
-  console.log(`useAuthStore: onAuthStateChange triggered with event: ${event}`);
-  hasProcessedInitial = true;
-  await handleAuthChange(session);
-});
-
-// Run immediate check for initial load in case onAuthStateChange is not fired or delayed
-supabase.auth.getSession().then(({ data: { session } }) => {
-  if (!hasProcessedInitial) {
-    console.log('useAuthStore: getSession resolved before auth listener');
-    hasProcessedInitial = true;
-    handleAuthChange(session);
-  }
-}).catch((err) => {
-  console.error('Error during initial session check:', err);
-  useAuthStore.setState({ isLoading: false });
+// Primary listener — handles ALL auth events
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log(`useAuthStore: onAuthStateChange event: ${event}`);
+  handleAuthChange(session);
 });
 
