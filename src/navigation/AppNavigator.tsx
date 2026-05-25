@@ -23,6 +23,7 @@ import { ExploreWorkoutsPage } from '../modules/training/pages/ExploreWorkoutsPa
 
 // Import Custom Tab Bar
 import { CustomTabBar } from '../components/CustomTabBar';
+import { TheaterOverlay } from '../components/TheaterOverlay';
 
 // Import Modules
 import { CreateRoutinePage } from '../modules/training/pages/CreateRoutinePage';
@@ -177,6 +178,17 @@ export const AppNavigator = () => {
   const { colors } = useTheme();
   const { showWorkoutCompletedToast } = useActivityStore();
 
+  const [showTheater, setShowTheater] = React.useState(false);
+  const [prevIsLoggedIn, setPrevIsLoggedIn] = React.useState(isLoggedIn);
+
+  React.useEffect(() => {
+    if (isLoggedIn && !prevIsLoggedIn) {
+      console.log('AppNavigator: Login detected! Triggering theater transition overlay.');
+      setShowTheater(true);
+    }
+    setPrevIsLoggedIn(isLoggedIn);
+  }, [isLoggedIn, prevIsLoggedIn]);
+
   const MyTheme = {
     ...DefaultTheme,
     dark: true,
@@ -212,6 +224,13 @@ export const AppNavigator = () => {
           <AuthNavigator />
         )}
       </NavigationContainer>
+
+      {showTheater && (
+        <TheaterOverlay onComplete={() => {
+          console.log('AppNavigator: Theater overlay animation completed.');
+          setShowTheater(false);
+        }} />
+      )}
 
       <AnimatePresence>
         {showWorkoutCompletedToast && <GlobalWorkoutToast />}

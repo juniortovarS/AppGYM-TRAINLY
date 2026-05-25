@@ -15,16 +15,15 @@ export const LoginHeader: React.FC = () => {
 
   useEffect(() => {
     // Only run GSAP on Web when the splash screen has completed
-    if (Platform.OS === 'web' && isSplashCompleted && containerRef.current) {
+    if (Platform.OS === 'web' && isSplashCompleted) {
       try {
         // Lazy-load GSAP to prevent native crash
         const { gsap } = require('gsap');
-        const el = containerRef.current;
-        console.log('LoginHeader [WEB]: Initializing GSAP after splash. Container:', el);
+        console.log('LoginHeader [WEB]: Initializing GSAP after splash.');
         
-        const logo = el.querySelector('.login-logo');
-        const lettersElements = el.querySelectorAll('.login-letter');
-        const tagline = el.querySelector('.login-tagline');
+        const logo = document.querySelector('.login-logo');
+        const lettersElements = document.querySelectorAll('.login-letter');
+        const tagline = document.querySelector('.login-tagline');
 
         console.log('LoginHeader [WEB]: Selected elements:', {
           logo,
