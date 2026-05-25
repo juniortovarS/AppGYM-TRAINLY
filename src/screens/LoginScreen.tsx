@@ -17,7 +17,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { AnimatedButton } from '../components/AnimatedButton';
 import { AuthStackParamList } from '../navigation/AppNavigator';
 import { Eye, EyeOff } from 'lucide-react-native';
-import { Image } from 'expo-image';
+import { LoginHeader } from '../components/LoginHeader';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -92,24 +92,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     <View style={styles.inner}>
 
       {/* Logo and Header Section */}
-      <MotiView
-        from={{ opacity: 0, scale: 0.8, translateY: -20 }}
-        animate={{ opacity: 1, scale: 1, translateY: 0 }}
-        transition={{ type: 'spring', damping: 15 }}
-        style={styles.logoContainer}
-      >
-        <Image
-          source={require('../../assets/logo.png')}
-          style={styles.logoImage}
-          contentFit="contain"
-        />
-        <Text style={[styles.logoText, { color: colors.textPrimary, fontSize: typography.sizes.display, fontWeight: typography.weights.heavy }]}>
-          TRAIN<Text style={{ color: colors.primary }}>LY</Text>
-        </Text>
-        <Text style={[styles.tagline, { color: colors.textSecondary, fontSize: typography.sizes.sm }]}>
-          Performance & Elite Fitness Tracking
-        </Text>
-      </MotiView>
+      <LoginHeader />
 
       {/* Form Section */}
       <View style={styles.formContainer}>
@@ -287,22 +270,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoImage: {
-    width: 100,
-    height: 100,
-    marginBottom: 12,
-  },
-  logoText: {
-    letterSpacing: -1,
-  },
-  tagline: {
-    marginTop: 6,
-    opacity: 0.8,
   },
   formContainer: {
     width: '100%',
