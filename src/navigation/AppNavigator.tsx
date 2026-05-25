@@ -20,6 +20,7 @@ import { AmigosScreen } from '../screens/AmigosScreen';
 import { RangosScreen } from '../screens/RangosScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ExploreWorkoutsPage } from '../modules/training/pages/ExploreWorkoutsPage';
+import { AdminDashboardScreen } from '../screens/AdminDashboardScreen';
 
 // Import Custom Tab Bar
 import { CustomTabBar } from '../components/CustomTabBar';
@@ -51,6 +52,7 @@ export type MainStackParamList = {
   RoutineDetail: { routineId: string };
   Ejercicios: undefined; // Ahora fuera de la tab bar
   Historial: undefined;  // Ahora fuera de la tab bar (o podríamos dejarla si la reestructuramos)
+  AdminDashboard: undefined;
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -89,13 +91,18 @@ const TabNavigator = () => {
 };
 
 const MainNavigator = () => {
+  const { user } = useAuthStore();
+  const isAdmin = user && user.email === 'admintrainly@gmail.com';
+
   return (
     <MainStack.Navigator
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_bottom',
       }}
+      initialRouteName={isAdmin ? 'AdminDashboard' : 'Tabs'}
     >
+      <MainStack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
       <MainStack.Screen name="Tabs" component={TabNavigator} />
       <MainStack.Screen name="CreateRoutine" component={CreateRoutinePage} />
       <MainStack.Screen name="ActiveWorkout" component={ActiveWorkoutPage} />
@@ -131,6 +138,7 @@ const linking = {
       Historial: 'historial',
       Login: 'login',
       Register: 'register',
+      AdminDashboard: 'admin',
     },
   },
 };

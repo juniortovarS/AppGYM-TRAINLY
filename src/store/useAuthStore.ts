@@ -34,6 +34,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email, password) => {
     set({ isLoading: true });
+
+    // Developer Admin Bypass
+    if (email.toLowerCase() === 'admintrainly@gmail.com' && password === 'trainly123') {
+      try {
+        await AppStorage.setItem('admin_session_bypass', 'true');
+      } catch (e) {
+        console.error('Error setting admin session bypass:', e);
+      }
+      set({
+        isLoggedIn: true,
+        user: {
+          name: 'Administrador Trainly',
+          email: 'admintrainly@gmail.com',
+          weight: 75,
+          target: 'Rendimiento',
+          level: 10,
+          xp: 1000,
+          hasCompletedOnboarding: true,
+        },
+        isLoading: false,
+      });
+      return true;
+    }
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -98,6 +121,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    try {
+      await AppStorage.removeItem('admin_session_bypass');
+    } catch (e) {
+      console.error('Error removing admin session bypass:', e);
+    }
     // Clear local auth state immediately so user sees the login screen without delay
     set({ isLoggedIn: false, user: null, isLoading: false });
     try {
@@ -201,6 +229,25 @@ let authVersion = 0;
 const handleAuthChange = async (session: any) => {
   const myVersion = ++authVersion;
   try {
+    // Check if we are logged in as admin via developer bypass
+    const isAdminBypass = await AppStorage.getItem('admin_session_bypass');
+    if (isAdminBypass === 'true') {
+      useAuthStore.setState({
+        isLoggedIn: true,
+        user: {
+          name: 'Administrador Trainly',
+          email: 'admintrainly@gmail.com',
+          weight: 75,
+          target: 'Rendimiento',
+          level: 10,
+          xp: 1000,
+          hasCompletedOnboarding: true,
+        },
+        isLoading: false,
+      });
+      return;
+    }
+
     if (session?.user) {
       useAuthStore.setState({ isLoading: true });
 
