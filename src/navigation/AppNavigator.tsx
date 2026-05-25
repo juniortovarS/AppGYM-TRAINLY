@@ -100,7 +100,7 @@ const MainNavigator = () => {
         headerShown: false,
         animation: 'slide_from_bottom',
       }}
-      initialRouteName={isAdmin ? 'AdminDashboard' : 'Tabs'}
+      initialRouteName="Tabs"
     >
       <MainStack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
       <MainStack.Screen name="Tabs" component={TabNavigator} />

@@ -27,7 +27,8 @@ import {
   CheckCircle2,
   TrendingUp,
   Dumbbell,
-  X
+  X,
+  Shield
 } from 'lucide-react-native';
 import Body from 'react-native-body-highlighter';
 import { useAuthStore } from '../store/useAuthStore';
@@ -669,6 +670,28 @@ export const ProfileScreen: React.FC = () => {
               );
             })}
           </ScrollView>
+        )}
+
+        {/* PANEL ADMIN STATUS ACCESO */}
+        {user?.email === 'admintrainly@gmail.com' && (
+          <Pressable
+            onPress={() => navigation.navigate('AdminDashboard')}
+            style={({ pressed }) => [
+              styles.logoutBtn,
+              { 
+                borderColor: '#ffffff', 
+                backgroundColor: '#111115',
+                borderWidth: 1,
+                opacity: pressed ? 0.8 : 1,
+                marginTop: 16,
+              }
+            ]}
+          >
+            <Shield size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>
+              Status: Panel de Control
+            </Text>
+          </Pressable>
         )}
 
         {/* LOGOUT */}
