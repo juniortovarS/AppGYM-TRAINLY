@@ -17,6 +17,7 @@ interface AuthState {
   user: User | null;
   isLoggedIn: boolean;
   isLoading: boolean;
+  isSplashCompleted: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
   register: (name: string, email: string, password: string, weight: number, target: string) => Promise<{ success: boolean; sessionCreated: boolean }>;
@@ -29,6 +30,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoggedIn: false,
   isLoading: true, // Start loading until session is checked
+  isSplashCompleted: false,
 
   login: async (email, password) => {
     set({ isLoading: true });

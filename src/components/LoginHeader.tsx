@@ -2,21 +2,25 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useTheme } from '../hooks/useTheme';
+import { useAuthStore } from '../store/useAuthStore';
 
 export const LoginHeader: React.FC = () => {
   const { colors, typography } = useTheme();
   const containerRef = useRef<any>(null);
+  
+  // Listen to splash screen completion state
+  const isSplashCompleted = useAuthStore((state) => state.isSplashCompleted);
 
   const letters = ['T', 'R', 'A', 'I', 'N', 'L', 'Y'];
 
   useEffect(() => {
-    // Only run GSAP on Web
-    if (Platform.OS === 'web' && containerRef.current) {
+    // Only run GSAP on Web when the splash screen has completed
+    if (Platform.OS === 'web' && isSplashCompleted && containerRef.current) {
       try {
         // Lazy-load GSAP to prevent native crash
         const { gsap } = require('gsap');
         const el = containerRef.current;
-        console.log('LoginHeader [WEB]: Initializing GSAP. Container:', el);
+        console.log('LoginHeader [WEB]: Initializing GSAP after splash. Container:', el);
         
         const logo = el.querySelector('.login-logo');
         const lettersElements = el.querySelectorAll('.login-letter');
@@ -38,7 +42,7 @@ export const LoginHeader: React.FC = () => {
 
         // 2. Letters animation: staggered slide down with elastic bounce
         tl.fromTo(lettersElements,
-          { opacity: 0, y: -50, scale: 0.3, rotationY: 90 },
+          { opacity: 0, y: -50, scale: 0.3, rotateY: 90 },
           {
             opacity: 1,
             y: 0,
@@ -61,7 +65,7 @@ export const LoginHeader: React.FC = () => {
         console.error('LoginHeader [WEB]: GSAP animation error:', e);
       }
     }
-  }, [colors]);
+  }, [colors, isSplashCompleted]);
 
   if (Platform.OS === 'web') {
     // Cast to any to bypass React Native Web classname type restrictions in TypeScript
@@ -72,7 +76,16 @@ export const LoginHeader: React.FC = () => {
     const WebTagline = Text as any;
 
     return (
-      <WebContainer ref={containerRef} style={styles.logoContainer}>
+      <WebContainer 
+        ref={containerRef} 
+        style={[
+          styles.logoContainer, 
+          { 
+            // Stay hidden until the splash screen is dismissed to prevent flashing
+            opacity: isSplashCompleted ? 1 : 0 
+          }
+        ]}
+      >
         {/* Logo Image */}
         <WebLogoWrapper className="login-logo" style={styles.logoWrapper}>
           <Image
@@ -130,7 +143,11 @@ export const LoginHeader: React.FC = () => {
       {/* Logo Image */}
       <MotiView
         from={{ opacity: 0, scale: 0.4, rotate: '-20deg' }}
-        animate={{ opacity: 1, scale: 1, rotate: '0deg' }}
+        animate={{ 
+          opacity: isSplashCompleted ? 1 : 0, 
+          scale: isSplashCompleted ? 1 : 0.4, 
+          rotate: isSplashCompleted ? '0deg' : '-20deg' 
+        }}
         transition={{ type: 'spring', damping: 15, delay: 100 }}
         style={styles.logoWrapper}
       >
@@ -147,7 +164,11 @@ export const LoginHeader: React.FC = () => {
           <MotiText
             key={index}
             from={{ opacity: 0, translateY: -40, scale: 0.3 }}
-            animate={{ opacity: 1, translateY: 0, scale: 1 }}
+            animate={{ 
+              opacity: isSplashCompleted ? 1 : 0, 
+              translateY: isSplashCompleted ? 0 : -40, 
+              scale: isSplashCompleted ? 1 : 0.3 
+            }}
             transition={{
               type: 'spring',
               damping: 12,
@@ -171,7 +192,10 @@ export const LoginHeader: React.FC = () => {
       {/* Tagline */}
       <MotiText
         from={{ opacity: 0, translateY: 15 }}
-        animate={{ opacity: 0.8, translateY: 0 }}
+        animate={{ 
+          opacity: isSplashCompleted ? 0.8 : 0, 
+          translateY: isSplashCompleted ? 0 : 15 
+        }}
         transition={{ type: 'timing', duration: 700, delay: 800 }}
         style={[
           styles.tagline,

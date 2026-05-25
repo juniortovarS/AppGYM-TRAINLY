@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { SplashScreen } from './src/screens/SplashScreen';
+import { useAuthStore } from './src/store/useAuthStore';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -22,7 +23,10 @@ export default function App() {
       <StatusBar style="light" backgroundColor="#000000" />
       <AppNavigator />
       {showSplash && (
-        <SplashScreen onAnimationComplete={() => setShowSplash(false)} />
+        <SplashScreen onAnimationComplete={() => {
+          setShowSplash(false);
+          useAuthStore.setState({ isSplashCompleted: true });
+        }} />
       )}
     </SafeAreaProvider>
   );
